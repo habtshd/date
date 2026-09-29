@@ -1,4 +1,3 @@
-import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 
 class ApiEndpoints {
@@ -10,14 +9,12 @@ class ApiEndpoints {
     if (kIsWeb) {
       return 'http://localhost:3000/api/v1';
     }
-    try {
-      if (Platform.isAndroid) {
-        // Android emulator maps 10.0.2.2 to host machine localhost
-        return 'http://10.0.2.2:3000/api/v1';
-      }
-    } catch (_) {
-      // Platform not supported or other runtime
+
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      // Android emulator maps 10.0.2.2 to host machine localhost
+      return 'http://10.0.2.2:3000/api/v1';
     }
+
     return 'http://localhost:3000/api/v1';
   }
 
@@ -28,13 +25,11 @@ class ApiEndpoints {
     if (kIsWeb) {
       return 'ws://localhost:3000/ws/chat';
     }
-    try {
-      if (Platform.isAndroid) {
-        return 'ws://10.0.2.2:3000/ws/chat';
-      }
-    } catch (_) {
-      // Fallback
+
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return 'ws://10.0.2.2:3000/ws/chat';
     }
+
     return 'ws://localhost:3000/ws/chat';
   }
 
@@ -51,9 +46,13 @@ class ApiEndpoints {
   static const String interests = '/profile/interests';
   static const String photos = '/profile/photos';
   static const String primaryPhoto = '/profile/photos/primary';
+  static const String photoUploadUrl = '/profile/photos/upload-url';
+  static const String photoComplete = '/profile/photos/complete';
+  static const String photoPrimary = '/profile/photos';
 
   // Verification endpoints
   static const String startVerification = '/verification/start';
+  static const String verificationStart = '/verification/start';
   static const String verificationStatus = '/verification/status';
 
   // Discovery endpoints

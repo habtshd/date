@@ -182,7 +182,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryGold,
-                      foregroundColor: Colors.black,
+                      foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
@@ -364,7 +364,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
         alignment: Alignment.centerLeft,
         padding: const EdgeInsets.only(left: 32),
         decoration: BoxDecoration(
-          color: AppTheme.accentEmerald.withOpacity(0.25),
+          color: AppTheme.accentEmerald.withOpacity(0.15),
           borderRadius: BorderRadius.circular(28),
         ),
         child: const Icon(Icons.favorite_rounded, color: AppTheme.accentEmerald, size: 48),
@@ -373,7 +373,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 32),
         decoration: BoxDecoration(
-          color: AppTheme.accentCoral.withOpacity(0.25),
+          color: AppTheme.accentCoral.withOpacity(0.15),
           borderRadius: BorderRadius.circular(28),
         ),
         child: const Icon(Icons.close_rounded, color: AppTheme.accentCoral, size: 48),

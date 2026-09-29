@@ -267,15 +267,15 @@ app.post('/api/v1/likes/:userId', (req, res) => {
   const targetId = req.params.userId;
   console.log(`[LIKE] Liked target user: ${targetId}`);
 
-  // Auto-match for demonstration
+  // Auto-match: 100% FREE chat for all mutual matches
   const conversationId = `conv-${Date.now()}`;
   const conversation = {
     id: conversationId,
     otherUserId: targetId,
     otherUserName: 'Bethlehem',
-    status: 'LOCKED',
-    isUnlocked: false,
-    chatFeeEtb: 150.0,
+    status: 'ACTIVE',
+    isUnlocked: true,
+    chatFeeEtb: 0.0,
   };
   state.conversations.set(conversationId, conversation);
 
@@ -301,7 +301,7 @@ app.get('/api/v1/matches', (req, res) => {
       photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
       matchedAt: new Date().toISOString(),
       conversationId: 'conv-101',
-      isConversationActive: false,
+      isConversationActive: true,
     },
   ];
   res.json({ matches: list });
@@ -315,7 +315,7 @@ app.get('/api/v1/conversations/:id', (req, res) => {
     otherUserName: 'Bethlehem',
     status: 'ACTIVE',
     isUnlocked: true,
-    chatFeeEtb: 150.0,
+    chatFeeEtb: 0.0,
   };
   res.json(conv);
 });
