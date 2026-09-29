@@ -9,6 +9,19 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.raw({ type: '*/*', limit: '50mb' }));
 
+// Route rewrite middleware: rewrite /discovery, /matches, /posts to /api/v1/*
+app.use((req, res, next) => {
+  if (
+    !req.url.startsWith('/api/v1') &&
+    !req.url.startsWith('/health') &&
+    !req.url.startsWith('/upload')
+  ) {
+    req.url = '/api/v1' + (req.url.startsWith('/') ? req.url : '/' + req.url);
+  }
+  console.log(`[HTTP ${req.method}] ${req.url}`);
+  next();
+});
+
 // In-memory State Store
 const state = {
   users: new Map(),

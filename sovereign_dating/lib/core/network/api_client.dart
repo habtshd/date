@@ -47,6 +47,17 @@ class ApiClient {
     );
   }
 
+  String _resolvePath(String path) {
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return path;
+    }
+    if (path.startsWith('/api/v1')) {
+      return path;
+    }
+    final clean = path.startsWith('/') ? path : '/$path';
+    return '/api/v1$clean';
+  }
+
   Future<dynamic> get(
     String path, {
     Map<String, dynamic>? queryParameters,
@@ -54,7 +65,7 @@ class ApiClient {
   }) async {
     try {
       final response = await dio.get(
-        path,
+        _resolvePath(path),
         queryParameters: queryParameters,
         options: options,
       );
@@ -72,7 +83,7 @@ class ApiClient {
   }) async {
     try {
       final response = await dio.post(
-        path,
+        _resolvePath(path),
         data: data,
         queryParameters: queryParameters,
         options: options,
@@ -91,7 +102,26 @@ class ApiClient {
   }) async {
     try {
       final response = await dio.put(
-        path,
+        _resolvePath(path),
+        data: data,
+        queryParameters: queryParameters,
+        options: options,
+      );
+      return _extractData(response);
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
+  Future<dynamic> patch(
+    String path, {
+    dynamic data,
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+  }) async {
+    try {
+      final response = await dio.patch(
+        _resolvePath(path),
         data: data,
         queryParameters: queryParameters,
         options: options,
@@ -110,7 +140,7 @@ class ApiClient {
   }) async {
     try {
       final response = await dio.delete(
-        path,
+        _resolvePath(path),
         data: data,
         queryParameters: queryParameters,
         options: options,
