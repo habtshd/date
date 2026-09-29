@@ -1,34 +1,34 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  // Brand Colors
-  static const Color darkBackground = Color(0xFF090A0F);
-  static const Color darkSurface = Color(0xFF13151F);
-  static const Color darkCard = Color(0xFF1B1E2E);
-  static const Color darkCardBorder = Color(0xFF2B2E42);
+  // Brand Colors — Crisp White / Light Mode
+  static const Color darkBackground = Color(0xFFF8F9FC); // Bright porcelain canvas
+  static const Color darkSurface = Color(0xFFFFFFFF);    // Pure crisp white surface
+  static const Color darkCard = Color(0xFFFFFFFF);       // Clean white card
+  static const Color darkCardBorder = Color(0xFFE2E8F0); // Subtle slate-200 border
 
-  static const Color primaryGold = Color(0xFFFFB300);
-  static const Color primaryGoldLight = Color(0xFFFFD54F);
-  static const Color primaryGoldDark = Color(0xFFFF8F00);
+  static const Color primaryGold = Color(0xFFD97706);      // Warm, high-contrast Ethiopian amber gold
+  static const Color primaryGoldLight = Color(0xFFF59E0B);
+  static const Color primaryGoldDark = Color(0xFFB45309);
 
-  static const Color accentCrimson = Color(0xFFFF3366);
-  static const Color accentCoral = Color(0xFFFF5252);
-  static const Color accentEmerald = Color(0xFF00E676);
+  static const Color accentCrimson = Color(0xFFE11D48);
+  static const Color accentCoral = Color(0xFFEF4444);
+  static const Color accentEmerald = Color(0xFF059669);
 
-  static const Color textPrimary = Color(0xFFF6F7F9);
-  static const Color textSecondary = Color(0xFFA0A3B5);
-  static const Color textMuted = Color(0xFF6B6E82);
+  static const Color textPrimary = Color(0xFF0F172A);   // Deep slate-900 black for ultra-sharp readability
+  static const Color textSecondary = Color(0xFF475569); // Slate-600
+  static const Color textMuted = Color(0xFF94A3B8);     // Slate-400
 
-  static const Color inputBackground = Color(0xFF161926);
+  static const Color inputBackground = Color(0xFFF1F5F9); // Clean soft light gray fill
 
-  static ThemeData get darkTheme {
+  static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
-      brightness: Brightness.dark,
+      brightness: Brightness.light,
       scaffoldBackgroundColor: darkBackground,
-      colorScheme: const ColorScheme.dark(
+      colorScheme: const ColorScheme.light(
         primary: primaryGold,
-        onPrimary: Colors.black,
+        onPrimary: Colors.white,
         secondary: accentCrimson,
         onSecondary: Colors.white,
         surface: darkSurface,
@@ -36,7 +36,7 @@ class AppTheme {
         error: accentCoral,
       ),
       appBarTheme: const AppBarTheme(
-        backgroundColor: darkBackground,
+        backgroundColor: darkSurface,
         elevation: 0,
         centerTitle: true,
         titleTextStyle: TextStyle(
@@ -49,7 +49,8 @@ class AppTheme {
       ),
       cardTheme: CardThemeData(
         color: darkCard,
-        elevation: 4,
+        elevation: 2,
+        shadowColor: Colors.black.withOpacity(0.06),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
           side: const BorderSide(color: darkCardBorder, width: 1),
@@ -58,8 +59,9 @@ class AppTheme {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryGold,
-          foregroundColor: Colors.black,
-          elevation: 0,
+          foregroundColor: Colors.white,
+          elevation: 2,
+          shadowColor: primaryGold.withOpacity(0.35),
           minimumSize: const Size.fromHeight(54),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
@@ -119,4 +121,6 @@ class AppTheme {
       ),
     );
   }
+
+  static ThemeData get darkTheme => lightTheme;
 }

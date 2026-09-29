@@ -13,7 +13,8 @@ class SovereignDatingApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'Sovereign Dating',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
+      theme: AppTheme.lightTheme,
+      themeMode: ThemeMode.light,
       routerConfig: router,
     );
   }
