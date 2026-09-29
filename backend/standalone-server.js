@@ -386,6 +386,87 @@ app.get('/api/v1/notifications', (req, res) => {
   });
 });
 
+// Community Posts / Ideas API
+const initialPosts = [
+  {
+    id: 'post-1',
+    authorId: 'usr-bethlehem',
+    authorName: 'Bethlehem',
+    authorAge: 25,
+    authorCity: 'Addis Ababa',
+    authorPhotoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+    category: 'Date Idea',
+    content: 'A traditional Buna Qala coffee ceremony followed by a late afternoon walk through Entoto Park overlooking the Addis skyline. Best conversation starter ever! ☕🌅',
+    likesCount: 14,
+    isLiked: false,
+    createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
+  },
+  {
+    id: 'post-2',
+    authorId: 'usr-dawit',
+    authorName: 'Dawit',
+    authorAge: 28,
+    authorCity: 'Addis Ababa',
+    authorPhotoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
+    category: 'Deep Thought',
+    content: 'Looking for a partnership where we respect our Ethiopian family roots and traditions, while giving each other the freedom to build modern dreams and travel the world together. 🌍✨',
+    likesCount: 9,
+    isLiked: false,
+    createdAt: new Date(Date.now() - 3600000 * 6).toISOString(),
+  },
+  {
+    id: 'post-3',
+    authorId: 'usr-selam',
+    authorName: 'Selamawit',
+    authorAge: 26,
+    authorCity: 'Addis Ababa',
+    authorPhotoUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=400&q=80',
+    category: 'Weekend Plan',
+    content: 'Sunday afternoon acoustic jazz at Fendika Cultural Center and debating Ethiopian literature over ginger tea. Who wants to join? 🎷📖',
+    likesCount: 19,
+    isLiked: false,
+    createdAt: new Date(Date.now() - 3600000 * 12).toISOString(),
+  },
+];
+
+let posts = [...initialPosts];
+
+app.get('/api/v1/posts', (req, res) => {
+  res.json({ posts });
+});
+
+app.post('/api/v1/posts', (req, res) => {
+  const { content, category } = req.body || {};
+  if (!content || !content.trim()) {
+    return res.status(400).json({ error: 'Content is required' });
+  }
+  const newPost = {
+    id: `post-${Date.now()}`,
+    authorId: 'usr-me',
+    authorName: 'You',
+    authorAge: 26,
+    authorCity: 'Addis Ababa',
+    authorPhotoUrl: '',
+    category: category || 'Date Idea',
+    content: content.trim(),
+    likesCount: 0,
+    isLiked: false,
+    createdAt: new Date().toISOString(),
+  };
+  posts.unshift(newPost);
+  res.status(201).json({ post: newPost });
+});
+
+app.post('/api/v1/posts/:id/like', (req, res) => {
+  const post = posts.find((p) => p.id === req.params.id);
+  if (!post) {
+    return res.status(404).json({ error: 'Post not found' });
+  }
+  post.isLiked = !post.isLiked;
+  post.likesCount += post.isLiked ? 1 : -1;
+  res.json({ success: true, isLiked: post.isLiked, likesCount: post.likesCount });
+});
+
 // Start Server
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`====================================================`);

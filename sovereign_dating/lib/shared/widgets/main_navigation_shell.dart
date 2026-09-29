@@ -38,6 +38,11 @@ class MainNavigationShell extends StatelessWidget {
               label: 'Discover',
             ),
             BottomNavigationBarItem(
+              icon: Icon(Icons.lightbulb_outline_rounded),
+              activeIcon: Icon(Icons.lightbulb_rounded),
+              label: 'Ideas',
+            ),
+            BottomNavigationBarItem(
               icon: Icon(Icons.favorite_border_rounded),
               activeIcon: Icon(Icons.favorite_rounded),
               label: 'Matches',

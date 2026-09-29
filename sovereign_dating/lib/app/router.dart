@@ -16,6 +16,8 @@ import '../features/payments/presentation/payment_screen.dart';
 import '../features/payments/data/payment_repository.dart';
 import '../features/notifications/presentation/notifications_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
+import '../features/posts/presentation/posts_screen.dart';
+import '../features/posts/presentation/create_post_screen.dart';
 import '../shared/widgets/main_navigation_shell.dart';
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -95,7 +97,23 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
 
-          // Tab 1: Matches
+          // Tab 1: Ideas & Thoughts
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/app/posts',
+                builder: (context, state) => const PostsScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'create',
+                    builder: (context, state) => const CreatePostScreen(),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          // Tab 2: Matches
           StatefulShellBranch(
             routes: [
               GoRoute(
