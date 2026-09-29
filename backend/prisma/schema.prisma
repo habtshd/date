@@ -1,0 +1,533 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ============================================================================
+// ENUMS (100% Matching Phase 2 Specifications)
+// ============================================================================
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+  DELETED
+
+  @@map("account_status_enum")
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  FAILED
+
+  @@map("verification_status_enum")
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+
+  @@map("gender_enum")
+}
+
+enum RelationshipGoal {
+  MARRIAGE
+  SERIOUS_RELATIONSHIP
+  DATING
+  GETTING_TO_KNOW
+  FRIENDSHIP
+
+  @@map("relationship_goal_enum")
+}
+
+enum PhotoStatus {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@map("photo_status_enum")
+}
+
+enum DeviceType {
+  IOS
+  ANDROID
+  WEB
+
+  @@map("device_type_enum")
+}
+
+enum MatchStatus {
+  ACTIVE
+  UNMATCHED
+
+  @@map("match_status_enum")
+}
+
+enum ConversationStatus {
+  LOCKED
+  ACTIVE
+  CLOSED
+
+  @@map("conversation_status_enum")
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  VOICE
+  SYSTEM
+
+  @@map("message_type_enum")
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+  CANCELLED
+
+  @@map("payment_status_enum")
+}
+
+enum ReportReason {
+  HARASSMENT
+  SCAM
+  FAKE_PROFILE
+  SEXUAL_CONTENT
+  THREATS
+  SPAM
+  IMPERSONATION
+  OTHER
+
+  @@map("report_reason_enum")
+}
+
+enum ReportStatus {
+  PENDING
+  INVESTIGATING
+  RESOLVED
+  DISMISSED
+
+  @@map("report_status_enum")
+}
+
+enum NotificationType {
+  NEW_MATCH
+  NEW_MESSAGE
+  PAYMENT_SUCCESS
+  VERIFICATION_COMPLETE
+  REPORT_UPDATE
+
+  @@map("notification_type_enum")
+}
+
+// ============================================================================
+// 1. users
+// ============================================================================
+
+model User {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  phoneNumber        String             @unique @map("phone_number") @db.VarChar(20)
+  phoneVerified      Boolean            @default(false) @map("phone_verified")
+  accountStatus      AccountStatus      @default(ACTIVE) @map("account_status")
+  verificationStatus VerificationStatus @default(UNVERIFIED) @map("verification_status")
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt          DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  lastActiveAt       DateTime?          @map("last_active_at") @db.Timestamptz()
+
+  // Relations
+  profile            UserProfile?
+  preference         UserPreference?
+  verificationRecords VerificationRecord[]
+  photos             ProfilePhoto[]
+  interests          UserInterest[]
+  sessions           Session[]
+  devices            Device[]
+  notifications      Notification[]
+
+  // Discovery & Interactions
+  sentLikes          Like[]             @relation("SentLikes")
+  receivedLikes      Like[]             @relation("ReceivedLikes")
+
+  // Matches (Canonical user_a_id < user_b_id)
+  matchesAsA         Match[]            @relation("MatchUserA")
+  matchesAsB         Match[]            @relation("MatchUserB")
+
+  // Conversations
+  conversationMembers ConversationMember[]
+  sentMessages       Message[]          @relation("SentMessages")
+  readMessages       MessageRead[]
+  payments           Payment[]
+
+  // Safety
+  initiatedBlocks    Block[]            @relation("InitiatedBlocks")
+  receivedBlocks     Block[]            @relation("ReceivedBlocks")
+  filedReports       Report[]           @relation("Reporter")
+  receivedReports    Report[]           @relation("ReportedUser")
+  resolvedReports    Report[]           @relation("ReportResolver")
+
+  @@index([phoneNumber])
+  @@index([accountStatus, verificationStatus])
+  @@map("users")
+}
+
+model PhoneVerification {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  phoneNumber   String   @map("phone_number") @db.VarChar(20)
+  otpHash       String   @map("otp_hash") @db.VarChar(255)
+  attemptsCount Int      @default(0) @map("attempts_count") @db.SmallInt
+  isConsumed    Boolean  @default(false) @map("is_consumed")
+  expiresAt     DateTime @map("expires_at") @db.Timestamptz()
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@index([phoneNumber])
+  @@map("phone_verifications")
+}
+
+// ============================================================================
+// 2. user_profiles
+// ============================================================================
+
+model UserProfile {
+  userId           String           @id @map("user_id") @db.Uuid
+  firstName        String           @map("first_name") @db.VarChar(50)
+  dateOfBirth      DateTime         @map("date_of_birth") @db.Date
+  gender           Gender
+  city             String           @db.VarChar(100)
+  bio              String?
+  profilePhotoId   String?          @map("profile_photo_id") @db.Uuid
+  relationshipGoal RelationshipGoal @default(SERIOUS_RELATIONSHIP) @map("relationship_goal")
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt        DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profilePhoto     ProfilePhoto?    @relation("PrimaryProfilePhoto", fields: [profilePhotoId], references: [id], onDelete: SetNull)
+
+  @@index([gender, city])
+  @@map("user_profiles")
+}
+
+// ============================================================================
+// 3. user_preferences
+// ============================================================================
+
+model UserPreference {
+  userId           String            @id @map("user_id") @db.Uuid
+  minAge           Int               @default(18) @map("min_age") @db.SmallInt
+  maxAge           Int               @default(55) @map("max_age") @db.SmallInt
+  preferredGender  Gender?           @map("preferred_gender")
+  preferredCity    String?           @map("preferred_city") @db.VarChar(100)
+  relationshipGoal RelationshipGoal? @map("relationship_goal")
+  maxDistanceKm    Int?              @default(50) @map("max_distance_km")
+  updatedAt        DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+// ============================================================================
+// 4. interests & 5. user_interests
+// ============================================================================
+
+model Interest {
+  id    String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name  String         @unique @db.VarChar(50)
+
+  users UserInterest[]
+
+  @@map("interests")
+}
+
+model UserInterest {
+  userId     String   @map("user_id") @db.Uuid
+  interestId String   @map("interest_id") @db.Uuid
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  interest   Interest @relation(fields: [interestId], references: [id], onDelete: Cascade)
+
+  @@id([userId, interestId])
+  @@map("user_interests")
+}
+
+// ============================================================================
+// 6. verification_records
+// ============================================================================
+
+model VerificationRecord {
+  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String             @map("user_id") @db.Uuid
+  provider          String             @db.VarChar(50)
+  status            VerificationStatus @default(PENDING)
+  providerReference String             @map("provider_reference") @db.VarChar(128)
+  verifiedAt        DateTime?          @map("verified_at") @db.Timestamptz()
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz()
+
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@map("verification_records")
+}
+
+// ============================================================================
+// 7. profile_photos
+// ============================================================================
+
+model ProfilePhoto {
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String        @map("user_id") @db.Uuid
+  storageKey        String        @map("storage_key")
+  blurredStorageKey String?       @map("blurred_storage_key")
+  isPrimary         Boolean       @default(false) @map("is_primary")
+  status            PhotoStatus   @default(PENDING)
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz()
+
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usedAsProfile     UserProfile[] @relation("PrimaryProfilePhoto")
+
+  @@index([userId, isPrimary])
+  @@map("profile_photos")
+}
+
+// ============================================================================
+// 8. sessions & 9. devices
+// ============================================================================
+
+model Session {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  refreshTokenHash String    @map("refresh_token_hash")
+  deviceId         String    @map("device_id") @db.VarChar(128)
+  expiresAt        DateTime  @map("expires_at") @db.Timestamptz()
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz()
+
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Device {
+  id         String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String     @map("user_id") @db.Uuid
+  deviceType DeviceType @map("device_type")
+  pushToken  String     @map("push_token")
+  createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz()
+  lastSeenAt DateTime   @default(now()) @map("last_seen_at") @db.Timestamptz()
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("devices")
+}
+
+// ============================================================================
+// 10. likes & 11. matches
+// ============================================================================
+
+model Like {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fromUserId String   @map("from_user_id") @db.Uuid
+  toUserId   String   @map("to_user_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  fromUser   User     @relation("SentLikes", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser     User     @relation("ReceivedLikes", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@unique([fromUserId, toUserId])
+  @@index([toUserId])
+  @@map("likes")
+}
+
+model Match {
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userAId      String        @map("user_a_id") @db.Uuid
+  userBId      String        @map("user_b_id") @db.Uuid
+  status       MatchStatus   @default(ACTIVE)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz()
+  endedAt      DateTime?     @map("ended_at") @db.Timestamptz()
+
+  userA        User          @relation("MatchUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB        User          @relation("MatchUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  conversation Conversation?
+
+  @@unique([userAId, userBId])
+  @@index([userAId, status])
+  @@index([userBId, status])
+  @@map("matches")
+}
+
+// ============================================================================
+// 12. conversations & 13. conversation_members
+// ============================================================================
+
+model Conversation {
+  id          String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  matchId     String             @unique @map("match_id") @db.Uuid
+  status      ConversationStatus @default(LOCKED)
+  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz()
+  unlockedAt  DateTime?          @map("unlocked_at") @db.Timestamptz()
+
+  match       Match              @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  members     ConversationMember[]
+  messages    Message[]
+  payments    Payment[]
+  reports     Report[]
+
+  @@index([status])
+  @@map("conversations")
+}
+
+model ConversationMember {
+  conversationId String       @map("conversation_id") @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  joinedAt       DateTime     @default(now()) @map("joined_at") @db.Timestamptz()
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, userId])
+  @@index([userId])
+  @@map("conversation_members")
+}
+
+// ============================================================================
+// 14. messages & 15. message_reads
+// ============================================================================
+
+model Message {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId String        @map("conversation_id") @db.Uuid
+  senderId       String        @map("sender_id") @db.Uuid
+  messageType    MessageType   @default(TEXT) @map("message_type")
+  content        String
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz()
+  deletedAt      DateTime?     @map("deleted_at") @db.Timestamptz()
+
+  conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User          @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  reads          MessageRead[]
+
+  @@index([conversationId, createdAt(sort: Desc)])
+  @@map("messages")
+}
+
+model MessageRead {
+  messageId String   @map("message_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  readAt    DateTime @default(now()) @map("read_at") @db.Timestamptz()
+
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([messageId, userId])
+  @@index([userId])
+  @@map("message_reads")
+}
+
+// ============================================================================
+// 16. payments (One Payment per Conversation)
+// ============================================================================
+
+model Payment {
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String        @map("user_id") @db.Uuid
+  conversationId    String        @map("conversation_id") @db.Uuid
+  provider          String        @db.VarChar(50)
+  providerReference String        @unique @map("provider_reference") @db.VarChar(128)
+  amount            Decimal       @db.Decimal(10, 2)
+  currency          String        @default("ETB") @db.VarChar(10)
+  status            PaymentStatus @default(PENDING)
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz()
+  completedAt       DateTime?     @map("completed_at") @db.Timestamptz()
+
+  user              User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  conversation      Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, conversationId])
+  @@index([providerReference])
+  @@index([status])
+  @@map("payments")
+}
+
+// ============================================================================
+// 17. blocks & 18. reports
+// ============================================================================
+
+model Block {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  blockerId String   @map("blocker_id") @db.Uuid
+  blockedId String   @map("blocked_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  blocker   User     @relation("InitiatedBlocks", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked   User     @relation("ReceivedBlocks", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@index([blockerId, blockedId])
+  @@index([blockedId, blockerId])
+  @@map("blocks")
+}
+
+model Report {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reporterId     String       @map("reporter_id") @db.Uuid
+  reportedUserId String       @map("reported_user_id") @db.Uuid
+  conversationId String?      @map("conversation_id") @db.Uuid
+  reason         ReportReason
+  description    String?
+  status         ReportStatus @default(PENDING)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz()
+  resolvedAt     DateTime?    @map("resolved_at") @db.Timestamptz()
+  resolvedBy     String?      @map("resolved_by") @db.Uuid
+
+  reporter       User         @relation("Reporter", fields: [reporterId], references: [id], onDelete: Restrict)
+  reportedUser   User         @relation("ReportedUser", fields: [reportedUserId], references: [id], onDelete: Restrict)
+  conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  resolver       User?        @relation("ReportResolver", fields: [resolvedBy], references: [id], onDelete: SetNull)
+
+  @@index([reportedUserId, status])
+  @@map("reports")
+}
+
+// ============================================================================
+// 19. notifications & 20. audit_logs
+// ============================================================================
+
+model Notification {
+  id        String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  type      NotificationType
+  title     String           @db.VarChar(150)
+  body      String
+  readAt    DateTime?        @map("read_at") @db.Timestamptz()
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz()
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorUserId String   @map("actor_user_id") @db.Uuid
+  action      String   @db.VarChar(100)
+  targetType  String   @map("target_type") @db.VarChar(50)
+  targetId    String   @map("target_id") @db.Uuid
+  metadata    Json?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@index([actorUserId])
+  @@index([targetType, targetId])
+  @@map("audit_logs")
+}
