@@ -1,0 +1,150 @@
+version: '3.8'
+
+services:
+  # 1. PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: sovereign_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sovereign}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sovereign_secret_pw}
+      POSTGRES_DB: ${POSTGRES_DB:-sovereign_dating}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sovereign -d sovereign_dating"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sovereign_net
+
+  # 2. Redis Cache & Queue
+  redis:
+    image: redis:7-alpine
+    container_name: sovereign_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sovereign_net
+
+  # 3. MinIO S3 Object Storage
+  minio:
+    image: minio/minio:RELEASE.2024-01-18T22-51-28Z
+    container_name: sovereign_minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-sovereign_minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-sovereign_minio_secret}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - sovereign_net
+
+  # 4. Fastify TypeScript Backend
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sovereign_api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sovereign}:${POSTGRES_PASSWORD:-sovereign_secret_pw}@postgres:5432/${POSTGRES_DB:-sovereign_dating}?schema=public
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-sovereign_production_jwt_secret_key_change_me_32_chars}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-sovereign_production_jwt_refresh_secret_key_32_chars}
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-sovereign_minio}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-sovereign_minio_secret}
+      S3_BUCKET: sovereign-photos
+      TELEBIRR_APP_ID: ${TELEBIRR_APP_ID:-mock_app_id}
+      TELEBIRR_APP_KEY: ${TELEBIRR_APP_KEY:-mock_app_key}
+      TELEBIRR_PUBLIC_KEY: ${TELEBIRR_PUBLIC_KEY:-mock_public_key}
+      CHAPA_SECRET_KEY: ${CHAPA_SECRET_KEY:-mock_chapa_secret}
+      FAYDA_API_KEY: ${FAYDA_API_KEY:-mock_fayda_key}
+      FAYDA_WEBHOOK_SECRET: ${FAYDA_WEBHOOK_SECRET:-mock_fayda_webhook_secret}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    networks:
+      - sovereign_net
+
+  # 5. User Web Application
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: sovereign_web
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
+    networks:
+      - sovereign_net
+
+  # 6. Admin Command Center
+  admin:
+    build:
+      context: ./admin
+      dockerfile: Dockerfile
+    container_name: sovereign_admin
+    restart: unless-stopped
+    ports:
+      - "5174:80"
+    depends_on:
+      - api
+    networks:
+      - sovereign_net
+
+  # 7. Caddy Reverse Proxy & Automatic TLS
+  caddy:
+    image: caddy:2-alpine
+    container_name: sovereign_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+      - web
+      - admin
+    networks:
+      - sovereign_net
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  sovereign_net:
+    driver: bridge

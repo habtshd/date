@@ -267,6 +267,10 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.notifications_outlined, color: AppTheme.textSecondary),
+            onPressed: () => context.push('/app/notifications'),
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh_rounded, color: AppTheme.textSecondary),
             onPressed: _fetchFeed,
           ),
@@ -346,12 +350,41 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
 
     final currentProfile = _profiles[_currentIndex];
 
-    return DiscoveryCard(
-      profile: currentProfile,
-      isUnverifiedPreview: !isVerified,
-      onLike: _handleLike,
-      onPass: _handlePass,
-      onVerifyPrompt: () => context.push('/verification/prompt'),
+    return Dismissible(
+      key: ValueKey('${currentProfile.userId}_$_currentIndex'),
+      direction: isVerified ? DismissDirection.horizontal : DismissDirection.none,
+      onDismissed: (direction) {
+        if (direction == DismissDirection.startToEnd) {
+          _handleLike();
+        } else {
+          _handlePass();
+        }
+      },
+      background: Container(
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 32),
+        decoration: BoxDecoration(
+          color: AppTheme.accentEmerald.withOpacity(0.25),
+          borderRadius: BorderRadius.circular(28),
+        ),
+        child: const Icon(Icons.favorite_rounded, color: AppTheme.accentEmerald, size: 48),
+      ),
+      secondaryBackground: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 32),
+        decoration: BoxDecoration(
+          color: AppTheme.accentCoral.withOpacity(0.25),
+          borderRadius: BorderRadius.circular(28),
+        ),
+        child: const Icon(Icons.close_rounded, color: AppTheme.accentCoral, size: 48),
+      ),
+      child: DiscoveryCard(
+        profile: currentProfile,
+        isUnverifiedPreview: !isVerified,
+        onLike: _handleLike,
+        onPass: _handlePass,
+        onVerifyPrompt: () => context.push('/verification/prompt'),
+      ),
     );
   }
 }

@@ -14,6 +14,7 @@ import '../features/chat/presentation/chats_screen.dart';
 import '../features/chat/presentation/chat_screen.dart';
 import '../features/payments/presentation/payment_screen.dart';
 import '../features/payments/data/payment_repository.dart';
+import '../features/notifications/presentation/notifications_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
 import '../shared/widgets/main_navigation_shell.dart';
 final routerProvider = Provider<GoRouter>((ref) {
@@ -140,6 +141,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/app/settings',
         builder: (context, state) => const SettingsScreen(),
+      ),
+
+      // Notifications Route
+      GoRoute(
+        path: '/app/notifications',
+        builder: (context, state) => const NotificationsScreen(),
       ),
     ],
   );

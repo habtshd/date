@@ -1,0 +1,20 @@
+# Caddyfile Reverse Proxy for Sovereign Dating Platform
+
+# API & WebSocket
+{$API_DOMAIN:api.sovereigndate.et} {
+    reverse_proxy api:3000 {
+        # WebSocket support
+        header_up Upgrade {http.request.header.Upgrade}
+        header_up Connection {http.request.header.Connection}
+    }
+}
+
+# User Web App
+{$WEB_DOMAIN:app.sovereigndate.et} {
+    reverse_proxy web:80
+}
+
+# Admin Command Center
+{$ADMIN_DOMAIN:admin.sovereigndate.et} {
+    reverse_proxy admin:80
+}
