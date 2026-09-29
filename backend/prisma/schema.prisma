@@ -108,6 +108,25 @@ enum PaymentStatus {
   @@map("payment_status_enum")
 }
 
+enum UserRole {
+  USER
+  MODERATOR
+  ADMIN
+
+  @@map("user_role_enum")
+}
+
+enum ModerationActionType {
+  WARNING
+  CONTENT_REMOVED
+  TEMPORARY_SUSPENSION
+  PERMANENT_BAN
+  REPORT_DISMISSED
+  VERIFICATION_REVIEW
+
+  @@map("moderation_action_type_enum")
+}
+
 enum ReportReason {
   HARASSMENT
   SCAM
@@ -122,10 +141,12 @@ enum ReportReason {
 }
 
 enum ReportStatus {
-  PENDING
-  INVESTIGATING
+  OPEN
+  REVIEWING
   RESOLVED
   DISMISSED
+  PENDING
+  INVESTIGATING
 
   @@map("report_status_enum")
 }
@@ -150,6 +171,7 @@ model User {
   phoneVerified      Boolean            @default(false) @map("phone_verified")
   accountStatus      AccountStatus      @default(ACTIVE) @map("account_status")
   verificationStatus VerificationStatus @default(UNVERIFIED) @map("verification_status")
+  role               UserRole           @default(USER)
   createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt          DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
   lastActiveAt       DateTime?          @map("last_active_at") @db.Timestamptz()
@@ -177,12 +199,14 @@ model User {
   readMessages       MessageRead[]
   payments           Payment[]
 
-  // Safety
+  // Safety & Moderation
   initiatedBlocks    Block[]            @relation("InitiatedBlocks")
   receivedBlocks     Block[]            @relation("ReceivedBlocks")
   filedReports       Report[]           @relation("Reporter")
   receivedReports    Report[]           @relation("ReportedUser")
   resolvedReports    Report[]           @relation("ReportResolver")
+  moderationTargets  ModerationAction[] @relation("ModerationTargets")
+  moderationActions  ModerationAction[] @relation("ModerationBy")
 
   @@index([phoneNumber])
   @@index([accountStatus, verificationStatus])
@@ -511,6 +535,8 @@ model Block {
   blocked   User     @relation("ReceivedBlocks", fields: [blockedId], references: [id], onDelete: Cascade)
 
   @@unique([blockerId, blockedId])
+  @@index([blockerId])
+  @@index([blockedId])
   @@index([blockerId, blockedId])
   @@index([blockedId, blockerId])
   @@map("blocks")
@@ -522,8 +548,8 @@ model Report {
   reportedUserId String       @map("reported_user_id") @db.Uuid
   conversationId String?      @map("conversation_id") @db.Uuid
   reason         ReportReason
-  description    String?
-  status         ReportStatus @default(PENDING)
+  description    String?      @db.VarChar(2000)
+  status         ReportStatus @default(OPEN)
   createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz()
   resolvedAt     DateTime?    @map("resolved_at") @db.Timestamptz()
   resolvedBy     String?      @map("resolved_by") @db.Uuid
@@ -534,7 +560,27 @@ model Report {
   resolver       User?        @relation("ReportResolver", fields: [resolvedBy], references: [id], onDelete: SetNull)
 
   @@index([reportedUserId, status])
+  @@index([reporterId])
+  @@index([status])
   @@map("reports")
+}
+
+model ModerationAction {
+  id           String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  targetUserId String               @map("target_user_id") @db.Uuid
+  moderatorId  String?              @map("moderator_id") @db.Uuid
+  type         ModerationActionType
+  reason       String?              @db.VarChar(2000)
+  createdAt    DateTime             @default(now()) @map("created_at") @db.Timestamptz()
+  expiresAt    DateTime?            @map("expires_at") @db.Timestamptz()
+
+  targetUser   User                 @relation("ModerationTargets", fields: [targetUserId], references: [id], onDelete: Restrict)
+  moderator    User?                @relation("ModerationBy", fields: [moderatorId], references: [id], onDelete: SetNull)
+
+  @@index([targetUserId])
+  @@index([moderatorId])
+  @@index([type])
+  @@map("moderation_actions")
 }
 
 // ============================================================================

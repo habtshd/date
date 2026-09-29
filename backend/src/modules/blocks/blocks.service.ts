@@ -2,21 +2,42 @@ import { prisma } from '../../plugins/prisma';
 import { getCanonicalPair } from '../../utils/crypto';
 import { wsManager } from '../../plugins/websocket';
 
+/**
+ * Shared reusable check: returns true if either user has blocked the other
+ */
+export async function isBlocked(
+  userAId: string,
+  userBId: string
+): Promise<boolean> {
+  const block = await prisma.block.findFirst({
+    where: {
+      OR: [
+        { blockerId: userAId, blockedId: userBId },
+        { blockerId: userBId, blockedId: userAId },
+      ],
+    },
+  });
+
+  return Boolean(block);
+}
+
 export class BlocksService {
   /**
-   * Immediately block a target user and close any mutual match / conversation
+   * Block a user.
+   * Immediately terminates active match, closes conversation, removes likes, and emits audit event.
    */
   async blockUser(blockerId: string, blockedId: string) {
     if (blockerId === blockedId) {
-      throw new Error('You cannot block yourself');
+      throw new Error('CANNOT_BLOCK_SELF');
     }
 
     const targetUser = await prisma.user.findUnique({
       where: { id: blockedId },
+      select: { id: true, accountStatus: true },
     });
 
     if (!targetUser) {
-      throw new Error('User not found');
+      throw new Error('USER_NOT_FOUND');
     }
 
     const { userAId, userBId } = getCanonicalPair(blockerId, blockedId);
@@ -62,7 +83,7 @@ export class BlocksService {
         }
       }
 
-      // 3. Remove pending likes between them
+      // 3. Remove any pending likes between them
       await tx.like.deleteMany({
         where: {
           OR: [
@@ -84,13 +105,13 @@ export class BlocksService {
       });
     });
 
-    // Notify blocked user's socket that conversation is closed
+    // Notify blocked user's socket that conversation is disconnected
     wsManager.broadcastToUser(blockedId, {
       type: 'USER_DISCONNECTED_BLOCK',
       targetUserId: blockerId,
     });
 
-    return { success: true, message: 'User blocked successfully' };
+    return { success: true, blocked: true, message: 'User blocked successfully' };
   }
 
   /**
@@ -107,14 +128,25 @@ export class BlocksService {
     });
 
     if (!block) {
-      throw new Error('Block record not found');
+      throw new Error('BLOCK_NOT_FOUND');
     }
 
-    await prisma.block.delete({
-      where: { id: block.id },
+    await prisma.$transaction(async (tx) => {
+      await tx.block.delete({
+        where: { id: block.id },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorUserId: blockerId,
+          action: 'USER_UNBLOCKED',
+          targetType: 'USER',
+          targetId: blockedId,
+        },
+      });
     });
 
-    return { success: true, message: 'User unblocked successfully' };
+    return { success: true, unblocked: true, message: 'User unblocked successfully' };
   }
 
   /**
@@ -144,3 +176,5 @@ export class BlocksService {
 }
 
 export const blocksService = new BlocksService();
+export const blockUser = (blockerId: string, blockedId: string) => blocksService.blockUser(blockerId, blockedId);
+export const unblockUser = (blockerId: string, blockedId: string) => blocksService.unblockUser(blockerId, blockedId);

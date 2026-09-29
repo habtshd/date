@@ -13,9 +13,11 @@ export const FileReportSchema = z.object({
     'IMPERSONATION',
     'OTHER',
   ]),
-  description: z.string().max(1000).optional(),
+  description: z.string().max(2000, 'Description cannot exceed 2000 characters').optional(),
 });
 
 export const ReportIdParamSchema = z.object({
   id: z.string().uuid('Invalid report UUID format'),
 });
+
+export type FileReportInput = z.infer<typeof FileReportSchema>;

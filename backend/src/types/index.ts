@@ -1,10 +1,11 @@
-import { AccountStatus, VerificationStatus } from '@prisma/client';
+import { AccountStatus, VerificationStatus, UserRole } from '@prisma/client';
 
 export interface UserSessionPayload {
   userId: string;
   phoneNumber: string;
   accountStatus: AccountStatus;
   verificationStatus: VerificationStatus;
+  role?: UserRole;
 }
 
 export interface AdminSessionPayload {

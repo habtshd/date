@@ -3,6 +3,7 @@ import { adminService } from './admin.service';
 import {
   AdminLoginSchema,
   AdminModerationActionSchema,
+  AdminUpdateReportSchema,
   AdminReportQuerySchema,
   AdminPaginationSchema,
 } from './admin.schema';
@@ -22,19 +23,48 @@ export class AdminController {
 
   async getReports(request: FastifyRequest, reply: FastifyReply) {
     const query = AdminReportQuerySchema.parse(request.query || {});
-    const result = await adminService.getReports(query.status, query.page, query.limit);
+    const result = await adminService.getReports(query.status as any, query.page, query.limit);
     return reply.status(200).send({ success: true, ...result });
+  }
+
+  async getReportDetails(request: FastifyRequest, reply: FastifyReply) {
+    const params = request.params as { id: string };
+    try {
+      const result = await adminService.getReportDetails(params.id);
+      return reply.status(200).send({ success: true, ...result });
+    } catch (err: any) {
+      return reply.status(404).send({ success: false, message: err.message });
+    }
+  }
+
+  async updateReportStatus(request: FastifyRequest, reply: FastifyReply) {
+    const adminId = request.user!.userId;
+    const params = request.params as { id: string };
+    const body = AdminUpdateReportSchema.parse(request.body);
+    try {
+      const result = await adminService.updateReportStatus(
+        adminId,
+        params.id,
+        body.status as any,
+        body.resolutionNotes
+      );
+      return reply.status(200).send({ success: true, report: result });
+    } catch (err: any) {
+      return reply.status(400).send({ success: false, message: err.message });
+    }
   }
 
   async executeModeration(request: FastifyRequest, reply: FastifyReply) {
     const adminId = request.user!.userId;
     const body = AdminModerationActionSchema.parse(request.body);
+    const expiresAt = body.expiresAt ? new Date(body.expiresAt) : undefined;
     const result = await adminService.executeModerationAction(
       adminId,
       body.targetUserId,
-      body.actionType,
+      body.actionType as any,
       body.reason,
-      body.reportId
+      body.reportId,
+      expiresAt
     );
     return reply.status(200).send({ success: true, ...result });
   }

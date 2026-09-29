@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { prisma } from '../../plugins/prisma';
 import { env } from '../../config/env';
-import { ReportStatus } from '@prisma/client';
+import { ReportStatus, ModerationActionType, UserRole } from '@prisma/client';
 
 export class AdminService {
   /**
@@ -23,12 +23,18 @@ export class AdminService {
           phoneVerified: true,
           accountStatus: 'ACTIVE',
           verificationStatus: 'VERIFIED',
+          role: UserRole.ADMIN,
         },
+      });
+    } else if (adminUser.role !== UserRole.ADMIN) {
+      adminUser = await prisma.user.update({
+        where: { id: adminUser.id },
+        data: { role: UserRole.ADMIN },
       });
     }
 
     const token = jwt.sign(
-      { userId: adminUser.id, adminId: adminUser.id, email, role: 'SUPER_ADMIN' },
+      { userId: adminUser.id, adminId: adminUser.id, email, role: 'ADMIN' },
       env.JWT_ACCESS_SECRET,
       { expiresIn: '8h' }
     );
@@ -38,7 +44,7 @@ export class AdminService {
       admin: {
         id: adminUser.id,
         email,
-        role: 'SUPER_ADMIN',
+        role: 'ADMIN',
       },
     };
   }
@@ -57,6 +63,7 @@ export class AdminService {
           phoneVerified: true,
           accountStatus: true,
           verificationStatus: true,
+          role: true,
           createdAt: true,
           lastActiveAt: true,
           profile: {
@@ -128,14 +135,133 @@ export class AdminService {
   }
 
   /**
-   * Execute moderation action (ban, suspend, warn) with mandatory audit logging
+   * Scoped report details inspection: need-to-know access scoped strictly to the report.
+   * Only retrieves attached conversation evidence if a conversationId is associated with the report.
+   */
+  async getReportDetails(reportId: string) {
+    const report = await prisma.report.findUnique({
+      where: { id: reportId },
+      include: {
+        reporter: {
+          select: {
+            id: true,
+            phoneNumber: true,
+            accountStatus: true,
+            verificationStatus: true,
+            profile: { select: { firstName: true, city: true } },
+          },
+        },
+        reportedUser: {
+          select: {
+            id: true,
+            phoneNumber: true,
+            accountStatus: true,
+            verificationStatus: true,
+            profile: { select: { firstName: true, city: true } },
+          },
+        },
+      },
+    });
+
+    if (!report) {
+      throw new Error('Report not found');
+    }
+
+    let conversationEvidence = null;
+    if (report.conversationId) {
+      const messages = await prisma.message.findMany({
+        where: {
+          conversationId: report.conversationId,
+          deletedAt: null,
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+        select: {
+          id: true,
+          senderId: true,
+          messageType: true,
+          content: true,
+          createdAt: true,
+        },
+      });
+
+      conversationEvidence = {
+        conversationId: report.conversationId,
+        messages: messages.reverse(),
+      };
+    }
+
+    return {
+      report,
+      conversationEvidence,
+    };
+  }
+
+  /**
+   * Update report status (e.g. OPEN -> REVIEWING -> RESOLVED/DISMISSED)
+   */
+  async updateReportStatus(
+    adminId: string,
+    reportId: string,
+    status: ReportStatus,
+    resolutionNotes?: string
+  ) {
+    const report = await prisma.report.findUnique({
+      where: { id: reportId },
+    });
+
+    if (!report) {
+      throw new Error('Report not found');
+    }
+
+    return prisma.$transaction(async (tx) => {
+      const isResolution = status === 'RESOLVED' || status === 'DISMISSED';
+      const updated = await tx.report.update({
+        where: { id: reportId },
+        data: {
+          status,
+          resolvedAt: isResolution ? new Date() : null,
+          resolvedBy: isResolution ? adminId : null,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorUserId: adminId,
+          action: isResolution ? 'REPORT_RESOLVED' : 'REPORT_REVIEWED',
+          targetType: 'REPORT',
+          targetId: reportId,
+          metadata: {
+            previousStatus: report.status,
+            newStatus: status,
+            resolutionNotes,
+          },
+        },
+      });
+
+      return updated;
+    });
+  }
+
+  /**
+   * Execute moderation action (ban, suspend, warn) with mandatory audit logging and ModerationAction record
    */
   async executeModerationAction(
     adminId: string,
     targetUserId: string,
-    actionType: 'WARNING' | 'SUSPEND' | 'BAN' | 'UNBAN',
+    actionType:
+      | 'WARNING'
+      | 'SUSPEND'
+      | 'BAN'
+      | 'UNBAN'
+      | 'CONTENT_REMOVED'
+      | 'TEMPORARY_SUSPENSION'
+      | 'PERMANENT_BAN'
+      | 'REPORT_DISMISSED'
+      | 'VERIFICATION_REVIEW',
     reason: string,
-    reportId?: string
+    reportId?: string,
+    expiresAt?: Date
   ) {
     const user = await prisma.user.findUnique({
       where: { id: targetUserId },
@@ -147,7 +273,7 @@ export class AdminService {
 
     return prisma.$transaction(async (tx) => {
       // 1. Update user account status accordingly
-      if (actionType === 'BAN') {
+      if (actionType === 'BAN' || actionType === 'PERMANENT_BAN') {
         await tx.user.update({
           where: { id: targetUserId },
           data: { accountStatus: 'BANNED' },
@@ -156,7 +282,7 @@ export class AdminService {
           where: { userId: targetUserId, revokedAt: null },
           data: { revokedAt: new Date() },
         });
-      } else if (actionType === 'SUSPEND') {
+      } else if (actionType === 'SUSPEND' || actionType === 'TEMPORARY_SUSPENSION') {
         await tx.user.update({
           where: { id: targetUserId },
           data: { accountStatus: 'SUSPENDED' },
@@ -174,30 +300,82 @@ export class AdminService {
 
       // 2. Resolve report if provided
       if (reportId) {
+        const nextStatus = actionType === 'REPORT_DISMISSED' ? 'DISMISSED' : 'RESOLVED';
         await tx.report.update({
           where: { id: reportId },
           data: {
-            status: 'RESOLVED',
+            status: nextStatus,
             resolvedAt: new Date(),
             resolvedBy: adminId,
           },
         });
       }
 
-      // 3. Mandatory Audit Trail Entry in audit_logs
+      // 3. Map to ModerationActionType enum
+      let mappedType: ModerationActionType;
+      switch (actionType) {
+        case 'BAN':
+        case 'PERMANENT_BAN':
+          mappedType = ModerationActionType.PERMANENT_BAN;
+          break;
+        case 'SUSPEND':
+        case 'TEMPORARY_SUSPENSION':
+          mappedType = ModerationActionType.TEMPORARY_SUSPENSION;
+          break;
+        case 'CONTENT_REMOVED':
+          mappedType = ModerationActionType.CONTENT_REMOVED;
+          break;
+        case 'REPORT_DISMISSED':
+          mappedType = ModerationActionType.REPORT_DISMISSED;
+          break;
+        case 'VERIFICATION_REVIEW':
+          mappedType = ModerationActionType.VERIFICATION_REVIEW;
+          break;
+        case 'WARNING':
+        default:
+          mappedType = ModerationActionType.WARNING;
+          break;
+      }
+
+      const moderationAction = await tx.moderationAction.create({
+        data: {
+          targetUserId,
+          moderatorId: adminId,
+          type: mappedType,
+          reason,
+          expiresAt: expiresAt ?? null,
+        },
+      });
+
+      // 4. Mandatory Audit Trail Entry in audit_logs
+      const auditAction =
+        actionType === 'BAN' || actionType === 'PERMANENT_BAN'
+          ? 'USER_BANNED'
+          : actionType === 'SUSPEND' || actionType === 'TEMPORARY_SUSPENSION'
+          ? 'USER_SUSPENDED'
+          : actionType === 'UNBAN'
+          ? 'USER_UNBANNED'
+          : 'MODERATION_ACTION_CREATED';
+
       await tx.auditLog.create({
         data: {
           actorUserId: adminId,
-          action: `MODERATION_${actionType}`,
+          action: auditAction,
           targetType: 'USER',
           targetId: targetUserId,
-          metadata: { reason, reportId, actionType },
+          metadata: {
+            reason,
+            reportId,
+            actionType,
+            moderationActionId: moderationAction.id,
+          },
         },
       });
 
       return {
         actionType,
         targetUserId,
+        moderationActionId: moderationAction.id,
         message: `Moderation action ${actionType} applied successfully`,
       };
     });
@@ -286,7 +464,7 @@ export class AdminService {
       prisma.user.count({ where: { verificationStatus: 'VERIFIED' } }),
       prisma.match.count({ where: { status: 'ACTIVE' } }),
       prisma.conversation.count({ where: { status: 'ACTIVE' } }),
-      prisma.report.count({ where: { status: 'PENDING' } }),
+      prisma.report.count({ where: { status: { in: ['PENDING', 'OPEN', 'REVIEWING'] } } }),
       prisma.payment.aggregate({
         where: { status: 'SUCCESS' },
         _sum: { amount: true },
