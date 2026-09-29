@@ -207,20 +207,20 @@ class _DiscoveryCardState extends State<DiscoveryCard> {
                   colors: [
                     Colors.transparent,
                     Colors.white.withOpacity(0.0),
-                    Colors.white.withOpacity(_isDetailsRevealed ? 0.40 : 0.25),
-                    Colors.white.withOpacity(_isDetailsRevealed ? 0.78 : 0.65),
-                    Colors.white.withOpacity(_isDetailsRevealed ? 0.94 : 0.90),
+                    Colors.white.withOpacity(_isDetailsRevealed ? 0.40 : 0.22),
+                    Colors.white.withOpacity(_isDetailsRevealed ? 0.78 : 0.60),
+                    Colors.white.withOpacity(_isDetailsRevealed ? 0.94 : 0.88),
                     Colors.white.withOpacity(0.98),
                   ],
                   stops: const [0.0, 0.12, 0.35, 0.58, 0.80, 1.0],
                 ),
               ),
-              padding: const EdgeInsets.fromLTRB(20, 36, 20, 22),
+              padding: const EdgeInsets.fromLTRB(20, 28, 20, 22),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Her Name Header with '>' Button for Details Revealed
+                  // Simplified Name Header with '>' Button
                   InkWell(
                     onTap: _toggleDetails,
                     borderRadius: BorderRadius.circular(14),
@@ -228,48 +228,56 @@ class _DiscoveryCardState extends State<DiscoveryCard> {
                       padding: const EdgeInsets.symmetric(vertical: 4),
                       child: Row(
                         children: [
-                          Flexible(
-                            child: Text(
-                              '${profile.firstName}, ${profile.age}',
-                              style: TextStyle(
-                                fontSize: 27,
-                                fontWeight: FontWeight.w900,
-                                color: AppTheme.textPrimary,
-                                letterSpacing: -0.5,
-                                shadows: [
-                                  Shadow(
-                                    color: Colors.white.withOpacity(0.9),
-                                    blurRadius: 12,
-                                    offset: const Offset(0, 1),
+                          Expanded(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    profile.firstName,
+                                    style: TextStyle(
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.w900,
+                                      color: AppTheme.textPrimary,
+                                      letterSpacing: -0.5,
+                                      shadows: [
+                                        Shadow(
+                                          color: Colors.white.withOpacity(0.9),
+                                          blurRadius: 12,
+                                          offset: const Offset(0, 1),
+                                        ),
+                                      ],
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                ],
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(width: 8),
+                                if (profile.isVerified)
+                                  Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.accentEmerald,
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: AppTheme.accentEmerald
+                                              .withOpacity(0.6),
+                                          blurRadius: 10,
+                                          spreadRadius: 1,
+                                        ),
+                                      ],
+                                    ),
+                                    child: const Icon(
+                                      Icons.check_rounded,
+                                      size: 14,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          if (profile.isVerified)
-                            Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                color: AppTheme.accentEmerald,
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppTheme.accentEmerald.withOpacity(0.6),
-                                    blurRadius: 10,
-                                    spreadRadius: 1,
-                                  ),
-                                ],
-                              ),
-                              child: const Icon(
-                                Icons.check_rounded,
-                                size: 14,
-                                color: Colors.white,
-                              ),
-                            ),
-                          const Spacer(),
+                          const SizedBox(width: 12),
                           // '>' Chevron Button to Reveal Details
                           Container(
                             padding: const EdgeInsets.all(8),
@@ -303,7 +311,7 @@ class _DiscoveryCardState extends State<DiscoveryCard> {
                     ),
                   ),
 
-                  // Animated Reveal Section: Location, Goal, Bio, and Interests
+                  // Animated Reveal Section: Age, Location, Goal, Bio, and Interests
                   AnimatedSize(
                     duration: const Duration(milliseconds: 280),
                     curve: Curves.easeOutCubic,
@@ -311,48 +319,71 @@ class _DiscoveryCardState extends State<DiscoveryCard> {
                         ? Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const SizedBox(height: 6),
-                              // Location & Glowing Amber Intent Tag
-                              Row(
+                              const SizedBox(height: 8),
+                              // Age, Location & Goal Tags Row
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 6,
                                 children: [
+                                  // Age Tag
                                   Container(
-                                    padding: const EdgeInsets.all(4),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.primaryGold
-                                          .withOpacity(0.15),
-                                      shape: BoxShape.circle,
+                                      color: Colors.white.withOpacity(0.85),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: const Color(0xFFE2E8F0),
+                                      ),
                                     ),
-                                    child: const Icon(
-                                      Icons.location_on_rounded,
-                                      size: 14,
-                                      color: AppTheme.primaryGold,
+                                    child: Text(
+                                      '${profile.age} years old',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppTheme.textPrimary,
+                                      ),
                                     ),
                                   ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    profile.city,
-                                    style: TextStyle(
-                                      fontSize: 13.5,
-                                      color: AppTheme.textSecondary,
-                                      fontWeight: FontWeight.w700,
-                                      shadows: [
-                                        Shadow(
-                                          color:
-                                              Colors.white.withOpacity(0.8),
-                                          blurRadius: 8,
+                                  // Location Tag
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.85),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: const Color(0xFFE2E8F0),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.location_on_rounded,
+                                          size: 13,
+                                          color: AppTheme.primaryGold,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          profile.city,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: AppTheme.textSecondary,
+                                            fontWeight: FontWeight.w700,
+                                          ),
                                         ),
                                       ],
                                     ),
                                   ),
-                                  const SizedBox(width: 10),
+                                  // Goal Tag
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 10, vertical: 3.5),
+                                        horizontal: 10, vertical: 4),
                                     decoration: BoxDecoration(
                                       color: const Color(0xFFFEF3C7)
                                           .withOpacity(0.85),
-                                      borderRadius:
-                                          BorderRadius.circular(8),
+                                      borderRadius: BorderRadius.circular(8),
                                       border: Border.all(
                                         color: const Color(0xFFF59E0B)
                                             .withOpacity(0.6),
