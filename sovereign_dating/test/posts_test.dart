@@ -48,8 +48,8 @@ void main() {
 
       await tester.pump(const Duration(milliseconds: 300));
 
-      expect(find.text('IDEAS & THOUGHTS'), findsOneWidget);
-      expect(find.text('Post Idea'), findsOneWidget);
+      expect(find.text('POST'), findsOneWidget);
+      expect(find.text('New Post'), findsOneWidget);
     });
 
     testWidgets('CreatePostScreen renders category chips and text input',

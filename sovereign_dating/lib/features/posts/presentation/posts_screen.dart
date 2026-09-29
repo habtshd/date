@@ -102,9 +102,9 @@ class _PostsScreenState extends ConsumerState<PostsScreen> {
         title: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.lightbulb_rounded, color: AppTheme.primaryGold, size: 22),
+            Icon(Icons.dynamic_feed_rounded, color: AppTheme.primaryGold, size: 22),
             SizedBox(width: 8),
-            Text('IDEAS & THOUGHTS'),
+            Text('POST'),
           ],
         ),
         actions: [
@@ -121,7 +121,7 @@ class _PostsScreenState extends ConsumerState<PostsScreen> {
         elevation: 4,
         icon: const Icon(Icons.add_rounded),
         label: const Text(
-          'Post Idea',
+          'New Post',
           style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 0.3),
         ),
       ),
@@ -185,7 +185,7 @@ class _PostsScreenState extends ConsumerState<PostsScreen> {
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const LoadingIndicator(message: 'Loading community ideas...');
+      return const LoadingIndicator(message: 'Loading community posts...');
     }
 
     if (_errorMessage != null) {
@@ -209,14 +209,14 @@ class _PostsScreenState extends ConsumerState<PostsScreen> {
                 shape: BoxShape.circle,
               ),
               child: const Icon(
-                Icons.lightbulb_outline_rounded,
+                Icons.dynamic_feed_rounded,
                 size: 48,
                 color: AppTheme.primaryGold,
               ),
             ),
             const SizedBox(height: 16),
             const Text(
-              'No Ideas Here Yet',
+              'No Posts Yet',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
@@ -225,7 +225,7 @@ class _PostsScreenState extends ConsumerState<PostsScreen> {
             ),
             const SizedBox(height: 6),
             const Text(
-              'Be the first to share your date idea or thought!',
+              'Be the first to share a post with the community!',
               style: TextStyle(
                 fontSize: 13,
                 color: AppTheme.textSecondary,
@@ -242,7 +242,7 @@ class _PostsScreenState extends ConsumerState<PostsScreen> {
                 ),
               ),
               icon: const Icon(Icons.add_rounded),
-              label: const Text('Post First Idea'),
+              label: const Text('Create First Post'),
             ),
           ],
         ),

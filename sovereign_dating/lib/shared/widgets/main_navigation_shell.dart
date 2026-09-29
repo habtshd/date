@@ -38,9 +38,9 @@ class MainNavigationShell extends StatelessWidget {
               label: 'Discover',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.lightbulb_outline_rounded),
-              activeIcon: Icon(Icons.lightbulb_rounded),
-              label: 'Ideas',
+              icon: Icon(Icons.dynamic_feed_outlined),
+              activeIcon: Icon(Icons.dynamic_feed_rounded),
+              label: 'Post',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.favorite_border_rounded),
