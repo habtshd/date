@@ -11,6 +11,9 @@ app.use(express.raw({ type: '*/*', limit: '50mb' }));
 
 // Route rewrite middleware: rewrite /discovery, /matches, /posts to /api/v1/*
 app.use((req, res, next) => {
+  if (req.url.includes('/api/v1/api/v1')) {
+    req.url = req.url.replace(/\/api\/v1\/api\/v1/g, '/api/v1');
+  }
   if (
     !req.url.startsWith('/api/v1') &&
     !req.url.startsWith('/health') &&
@@ -322,6 +325,25 @@ app.get('/api/v1/matches', (req, res) => {
 });
 
 // Conversations & Messages
+app.get(['/api/v1/conversations', '/conversations'], (req, res) => {
+  const existing = Array.from(state.conversations.values());
+  const list = existing.length > 0 ? existing : [
+    {
+      id: 'conv-101',
+      matchId: 'match-1',
+      status: 'ACTIVE',
+      otherUserId: 'usr-bethlehem',
+      otherUserName: 'Bethlehem',
+      otherUserPhoto: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+      lastMessage: 'Selam! So glad we matched on Sovereign.',
+      lastMessageAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
+      unreadCount: 1,
+      chatFeeEtb: 0.0,
+    },
+  ];
+  res.json({ conversations: list });
+});
+
 app.get('/api/v1/conversations/:id', (req, res) => {
   const conv = state.conversations.get(req.params.id) || {
     id: req.params.id,

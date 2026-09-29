@@ -26,9 +26,15 @@ class ApiClient {
     required SecureStorage storage,
     void Function()? onSessionExpired,
   }) : _storage = storage {
+    final cleanBase = baseUrl.endsWith('/api/v1')
+        ? baseUrl.substring(0, baseUrl.length - 7)
+        : (baseUrl.endsWith('/api/v1/')
+            ? baseUrl.substring(0, baseUrl.length - 8)
+            : baseUrl);
+
     dio = Dio(
       BaseOptions(
-        baseUrl: baseUrl,
+        baseUrl: cleanBase,
         connectTimeout: const Duration(seconds: 15),
         receiveTimeout: const Duration(seconds: 15),
         headers: {
