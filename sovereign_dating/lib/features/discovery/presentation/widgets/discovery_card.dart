@@ -26,16 +26,17 @@ class DiscoveryCard extends StatelessWidget {
         color: AppTheme.darkCard,
         borderRadius: BorderRadius.circular(28),
         border: Border.all(color: AppTheme.darkCardBorder, width: 1.2),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x140F172A),
-            blurRadius: 28,
-            offset: Offset(0, 10),
+            color: AppTheme.primaryGold.withOpacity(0.12),
+            blurRadius: 36,
+            spreadRadius: 1,
+            offset: const Offset(0, 10),
           ),
-          BoxShadow(
-            color: Color(0x080F172A),
-            blurRadius: 8,
-            offset: Offset(0, 2),
+          const BoxShadow(
+            color: Color(0x120F172A),
+            blurRadius: 24,
+            offset: Offset(0, 8),
           ),
         ],
       ),
@@ -46,45 +47,57 @@ class DiscoveryCard extends StatelessWidget {
           // Background / Profile Image
           _buildProfileImage(),
 
-          // Subtle top vignette to maintain contrast for top bar
+          // Delicate top vignette for status/header contrast
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.black.withOpacity(0.22),
+                  Colors.black.withOpacity(0.20),
                   Colors.transparent,
                 ],
-                stops: const [0.0, 0.18],
+                stops: const [0.0, 0.16],
               ),
             ),
           ),
 
-          // Top Preview Mode Notice Banner in White Mode
+          // Top Preview Mode Notice: Glowing Translucent Glass Pill
           if (isUnverifiedPreview)
             Positioned(
               top: 14,
               left: 14,
               right: 14,
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(18),
                 child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.95),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: AppTheme.primaryGold.withOpacity(0.4),
-                        width: 1.2,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Colors.white.withOpacity(0.70),
+                          Colors.white.withOpacity(0.40),
+                        ],
                       ),
-                      boxShadow: const [
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.85),
+                        width: 1.3,
+                      ),
+                      boxShadow: [
                         BoxShadow(
-                          color: Color(0x140F172A),
-                          blurRadius: 16,
+                          color: AppTheme.primaryGold.withOpacity(0.22),
+                          blurRadius: 20,
+                          offset: const Offset(0, 4),
+                        ),
+                        const BoxShadow(
+                          color: Color(0x100F172A),
+                          blurRadius: 12,
                           offset: Offset(0, 4),
                         ),
                       ],
@@ -94,8 +107,14 @@ class DiscoveryCard extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
-                            color: AppTheme.primaryGold.withOpacity(0.12),
+                            color: AppTheme.primaryGold.withOpacity(0.18),
                             shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.primaryGold.withOpacity(0.3),
+                                blurRadius: 6,
+                              ),
+                            ],
                           ),
                           child: const Icon(
                             Icons.lock_rounded,
@@ -110,7 +129,7 @@ class DiscoveryCard extends StatelessWidget {
                             style: TextStyle(
                               color: AppTheme.textPrimary,
                               fontSize: 12,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w800,
                               letterSpacing: -0.1,
                             ),
                           ),
@@ -118,12 +137,17 @@ class DiscoveryCard extends StatelessWidget {
                         const SizedBox(width: 8),
                         Container(
                           decoration: BoxDecoration(
-                            color: AppTheme.primaryGold,
+                            gradient: const LinearGradient(
+                              colors: [
+                                Color(0xFFFBBF24),
+                                Color(0xFFD97706),
+                              ],
+                            ),
                             borderRadius: BorderRadius.circular(10),
                             boxShadow: [
                               BoxShadow(
-                                color: AppTheme.primaryGold.withOpacity(0.3),
-                                blurRadius: 6,
+                                color: AppTheme.primaryGold.withOpacity(0.45),
+                                blurRadius: 10,
                                 offset: const Offset(0, 2),
                               ),
                             ],
@@ -140,7 +164,7 @@ class DiscoveryCard extends StatelessWidget {
                                   'Verify',
                                   style: TextStyle(
                                     color: Colors.white,
-                                    fontWeight: FontWeight.w700,
+                                    fontWeight: FontWeight.w800,
                                     fontSize: 12,
                                   ),
                                 ),
@@ -155,29 +179,52 @@ class DiscoveryCard extends StatelessWidget {
               ),
             ),
 
-          // Bottom Content: Floating Frosted-White Information Card
+          // Bottom Content: Modern Glowing Translucent Glass Panel
           Positioned(
             left: 14,
             right: 14,
             bottom: 14,
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(26),
               child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
                 child: Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.93),
-                    borderRadius: BorderRadius.circular(22),
+                    // Translucent frosted glass gradient
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white.withOpacity(0.68),
+                        Colors.white.withOpacity(0.38),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(26),
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.9),
+                      color: Colors.white.withOpacity(0.85),
                       width: 1.5,
                     ),
-                    boxShadow: const [
+                    boxShadow: [
+                      // Ambient golden radiance glow
                       BoxShadow(
-                        color: Color(0x180F172A),
-                        blurRadius: 24,
-                        offset: Offset(0, 8),
+                        color: AppTheme.primaryGold.withOpacity(0.20),
+                        blurRadius: 32,
+                        spreadRadius: 2,
+                        offset: const Offset(0, 8),
+                      ),
+                      // Specular top rim halo
+                      BoxShadow(
+                        color: Colors.white.withOpacity(0.7),
+                        blurRadius: 16,
+                        spreadRadius: -2,
+                        offset: const Offset(0, -2),
+                      ),
+                      // Soft frosted depth shadow
+                      const BoxShadow(
+                        color: Color(0x1F0F172A),
+                        blurRadius: 28,
+                        offset: Offset(0, 12),
                       ),
                     ],
                   ),
@@ -185,17 +232,24 @@ class DiscoveryCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Name, Age and Verification badge
+                      // Name, Age and Glowing Emerald Verification badge
                       Row(
                         children: [
                           Flexible(
                             child: Text(
                               '${profile.firstName}, ${profile.age}',
-                              style: const TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w800,
+                              style: TextStyle(
+                                fontSize: 25,
+                                fontWeight: FontWeight.w900,
                                 color: AppTheme.textPrimary,
-                                letterSpacing: -0.3,
+                                letterSpacing: -0.4,
+                                shadows: [
+                                  Shadow(
+                                    color: Colors.white.withOpacity(0.6),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 1),
+                                  ),
+                                ],
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -204,10 +258,17 @@ class DiscoveryCard extends StatelessWidget {
                           const SizedBox(width: 8),
                           if (profile.isVerified)
                             Container(
-                              padding: const EdgeInsets.all(3.5),
-                              decoration: const BoxDecoration(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
                                 color: AppTheme.accentEmerald,
                                 shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppTheme.accentEmerald.withOpacity(0.6),
+                                    blurRadius: 10,
+                                    spreadRadius: 1,
+                                  ),
+                                ],
                               ),
                               child: const Icon(
                                 Icons.check_rounded,
@@ -219,40 +280,55 @@ class DiscoveryCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
 
-                      // Location & Relationship Intent
+                      // Location & Glowing Amber Intent Tag
                       Row(
                         children: [
-                          const Icon(
-                            Icons.location_on_rounded,
-                            size: 15,
-                            color: AppTheme.primaryGold,
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryGold.withOpacity(0.15),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.location_on_rounded,
+                              size: 14,
+                              color: AppTheme.primaryGold,
+                            ),
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: 6),
                           Text(
                             profile.city,
                             style: const TextStyle(
                               fontSize: 13,
                               color: AppTheme.textSecondary,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                           const SizedBox(width: 10),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
+                                horizontal: 10, vertical: 3.5),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFEF3C7),
-                              borderRadius: BorderRadius.circular(6),
-                              border:
-                                  Border.all(color: const Color(0xFFFDE68A)),
+                              color: const Color(0xFFFEF3C7).withOpacity(0.75),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: const Color(0xFFF59E0B).withOpacity(0.6),
+                                width: 1,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFF59E0B).withOpacity(0.2),
+                                  blurRadius: 8,
+                                ),
+                              ],
                             ),
                             child: Text(
                               profile.relationshipGoal.replaceAll('_', ' '),
                               style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFFB45309),
-                                letterSpacing: 0.3,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF92400E),
+                                letterSpacing: 0.5,
                               ),
                             ),
                           ),
@@ -265,16 +341,16 @@ class DiscoveryCard extends StatelessWidget {
                           profile.bio!,
                           style: const TextStyle(
                             fontSize: 13,
-                            color: Color(0xFF334155),
+                            color: Color(0xFF1E293B),
                             height: 1.35,
-                            fontWeight: FontWeight.w400,
+                            fontWeight: FontWeight.w500,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ],
 
-                      // Interests Chips
+                      // Glowing Translucent Interest Chips
                       if (profile.interests.isNotEmpty) ...[
                         const SizedBox(height: 10),
                         Wrap(
@@ -283,19 +359,33 @@ class DiscoveryCard extends StatelessWidget {
                           children: profile.interests.take(3).map((interest) {
                             return Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 4),
+                                  horizontal: 11, vertical: 5),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFF1F5F9),
-                                borderRadius: BorderRadius.circular(8),
-                                border:
-                                  Border.all(color: const Color(0xFFE2E8F0)),
+                                color: Colors.white.withOpacity(0.55),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.9),
+                                  width: 1.2,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.white.withOpacity(0.5),
+                                    blurRadius: 6,
+                                    spreadRadius: -1,
+                                  ),
+                                  const BoxShadow(
+                                    color: Color(0x0A0F172A),
+                                    blurRadius: 4,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
                               ),
                               child: Text(
                                 interest,
                                 style: const TextStyle(
                                   fontSize: 11,
-                                  color: Color(0xFF334155),
-                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF0F172A),
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                             );
@@ -305,29 +395,79 @@ class DiscoveryCard extends StatelessWidget {
 
                       const SizedBox(height: 14),
 
-                      // Action Buttons: Pass and Like or Unverified Prompt
+                      // Action Button: Glowing Amber Radiant Button or Pass/Like
                       if (isUnverifiedPreview) ...[
-                        SizedBox(
+                        Container(
                           width: double.infinity,
-                          height: 48,
-                          child: ElevatedButton.icon(
-                            onPressed: onVerifyPrompt,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.primaryGold,
-                              foregroundColor: Colors.white,
-                              elevation: 2,
-                              shadowColor:
-                                  AppTheme.primaryGold.withOpacity(0.35),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
+                          height: 50,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [
+                                Color(0xFFFBBF24), // Radiant warm gold
+                                Color(0xFFD97706), // Ethiopian amber
+                                Color(0xFFB45309), // Bronze amber
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
                             ),
-                            icon: const Icon(Icons.verified_user_rounded,
-                                size: 18),
-                            label: const Text(
-                              'Verify Fayda ID to Like',
-                              style: TextStyle(
-                                  fontWeight: FontWeight.w700, fontSize: 14),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.5),
+                              width: 1,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFD97706).withOpacity(0.5),
+                                blurRadius: 20,
+                                spreadRadius: 1,
+                                offset: const Offset(0, 6),
+                              ),
+                              BoxShadow(
+                                color: Colors.white.withOpacity(0.35),
+                                blurRadius: 8,
+                                offset: const Offset(0, -1),
+                              ),
+                            ],
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: onVerifyPrompt,
+                              borderRadius: BorderRadius.circular(16),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(5),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.25),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.verified_user_rounded,
+                                      size: 18,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  const Text(
+                                    'Verify Fayda ID to Like',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 14.5,
+                                      color: Colors.white,
+                                      letterSpacing: 0.3,
+                                      shadows: [
+                                        Shadow(
+                                          color: Color(0x40000000),
+                                          blurRadius: 4,
+                                          offset: Offset(0, 1),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -335,71 +475,92 @@ class DiscoveryCard extends StatelessWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
-                            // Pass Button
-                            Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: onPass,
-                                borderRadius: BorderRadius.circular(32),
+                            // Pass Button with frosted glass
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(32),
+                              child: BackdropFilter(
+                                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
                                 child: Container(
-                                  width: 56,
-                                  height: 56,
+                                  width: 58,
+                                  height: 58,
                                   decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        Colors.white.withOpacity(0.75),
+                                        Colors.white.withOpacity(0.45),
+                                      ],
+                                    ),
                                     shape: BoxShape.circle,
-                                    color: Colors.white,
                                     border: Border.all(
-                                      color: const Color(0xFFE2E8F0),
+                                      color: Colors.white.withOpacity(0.9),
                                       width: 1.5,
                                     ),
                                     boxShadow: const [
                                       BoxShadow(
-                                        color: Color(0x0F0F172A),
-                                        blurRadius: 12,
+                                        color: Color(0x140F172A),
+                                        blurRadius: 14,
                                         offset: Offset(0, 4),
                                       ),
                                     ],
                                   ),
-                                  child: const Icon(
-                                    Icons.close_rounded,
-                                    color: Color(0xFF64748B),
-                                    size: 26,
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      onTap: onPass,
+                                      borderRadius: BorderRadius.circular(32),
+                                      child: const Icon(
+                                        Icons.close_rounded,
+                                        color: Color(0xFF64748B),
+                                        size: 28,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
                             const SizedBox(width: 20),
-                            // Like Button
-                            Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: onLike,
-                                borderRadius: BorderRadius.circular(36),
-                                child: Container(
-                                  width: 64,
-                                  height: 64,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    gradient: const LinearGradient(
-                                      colors: [
-                                        AppTheme.primaryGold,
-                                        AppTheme.accentCrimson,
-                                      ],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: AppTheme.accentCrimson
-                                            .withOpacity(0.35),
-                                        blurRadius: 16,
-                                        offset: const Offset(0, 6),
-                                      ),
-                                    ],
+                            // Glowing Like Button
+                            Container(
+                              width: 66,
+                              height: 66,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFFFF3366),
+                                    Color(0xFFFF5E3A),
+                                    Color(0xFFFBBF24),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.6),
+                                  width: 1.5,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFFFF3366).withOpacity(0.55),
+                                    blurRadius: 24,
+                                    spreadRadius: 2,
+                                    offset: const Offset(0, 6),
                                   ),
+                                  BoxShadow(
+                                    color: Colors.white.withOpacity(0.4),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, -1),
+                                  ),
+                                ],
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: onLike,
+                                  borderRadius: BorderRadius.circular(36),
                                   child: const Icon(
                                     Icons.favorite_rounded,
                                     color: Colors.white,
-                                    size: 30,
+                                    size: 32,
                                   ),
                                 ),
                               ),
