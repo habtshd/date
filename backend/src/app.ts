@@ -27,6 +27,7 @@ import { paymentsRoutes } from './modules/payments/payments.routes';
 import { blocksRoutes } from './modules/blocks/blocks.routes';
 import { reportsRoutes } from './modules/reports/reports.routes';
 import { notificationsRoutes } from './modules/notifications/notifications.routes';
+import { devicesRoutes } from './modules/devices/devices.routes';
 import { adminRoutes } from './modules/admin/admin.routes';
 
 export async function buildApp(): Promise<FastifyInstance> {
@@ -119,6 +120,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(blocksRoutes, { prefix: `${prefix}/blocks` });
   await app.register(reportsRoutes, { prefix: `${prefix}/reports` });
   await app.register(notificationsRoutes, { prefix: `${prefix}/notifications` });
+  await app.register(devicesRoutes, { prefix: `${prefix}/devices` });
   await app.register(adminRoutes, { prefix: `${prefix}/admin` });
 
   return app;

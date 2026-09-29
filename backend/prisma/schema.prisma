@@ -157,6 +157,7 @@ enum NotificationType {
   PAYMENT_SUCCESS
   VERIFICATION_COMPLETE
   REPORT_UPDATE
+  ACCOUNT_UPDATE
 
   @@map("notification_type_enum")
 }
@@ -182,6 +183,7 @@ model User {
   sessions           Session[]
   devices            Device[]
   notifications      Notification[]
+  notificationPreference NotificationPreference?
 
   // Discovery & Interactions
   sentLikes          Like[]             @relation("SentLikes")
@@ -369,6 +371,7 @@ model Device {
 
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, pushToken])
   @@index([userId])
   @@map("devices")
 }
@@ -599,7 +602,22 @@ model Notification {
   user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, readAt])
+  @@index([userId, createdAt])
   @@map("notifications")
+}
+
+model NotificationPreference {
+  userId              String   @id @map("user_id") @db.Uuid
+  newMatch            Boolean  @default(true) @map("new_match")
+  newMessage          Boolean  @default(true) @map("new_message")
+  paymentUpdates      Boolean  @default(true) @map("payment_updates")
+  verificationUpdates Boolean  @default(true) @map("verification_updates")
+  reportUpdates       Boolean  @default(true) @map("report_updates")
+  updatedAt           DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
 }
 
 model AuditLog {
