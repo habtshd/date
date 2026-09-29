@@ -1,21 +1,19 @@
 import { prisma } from '../../plugins/prisma';
 import { calculateAge } from '../../utils/age';
 
-export interface DiscoveryCard {
+export interface DiscoveryProfileDTO {
   id: string;
   firstName: string;
   age: number;
   gender: string;
   city: string;
-  bio?: string | null;
-  relationshipGoal?: string | null;
-  photos: {
+  bio: string | null;
+  relationshipGoal: string | null;
+  interests: string[];
+  photo: {
     id: string;
     url: string;
-    isPrimary: boolean;
-  }[];
-  interests: { id: string; name: string }[];
-  isVerified: boolean;
+  } | null;
 }
 
 export interface PreviewCard {
@@ -26,15 +24,44 @@ export interface PreviewCard {
   previewPhotoUrl: string | null;
 }
 
+export function toDiscoveryProfile(profile: {
+  userId: string;
+  firstName: string;
+  dateOfBirth: Date;
+  gender: string;
+  city: string;
+  bio: string | null;
+  relationshipGoal: string | null;
+  interests: { interest: { name: string } }[];
+  photos: { id: string; storageKey: string }[];
+}): DiscoveryProfileDTO {
+  return {
+    id: profile.userId,
+    firstName: profile.firstName,
+    age: calculateAge(profile.dateOfBirth),
+    gender: profile.gender,
+    city: profile.city,
+    bio: profile.bio,
+    relationshipGoal: profile.relationshipGoal,
+    interests: profile.interests.map((item) => item.interest.name),
+    photo: profile.photos[0]
+      ? {
+          id: profile.photos[0].id,
+          url: profile.photos[0].storageKey,
+        }
+      : null,
+  };
+}
+
 export class DiscoveryService {
   /**
    * Generates dating discovery feed for verified users based on preferences.
-   * Strictly returns sanitized dating profiles (no PII, no phone, no identity documents).
+   * Strictly filters out already liked, passed, blocked, matched, or inactive users.
    */
   async getDiscoveryFeed(
     userId: string,
     limit = 20
-  ): Promise<{ profiles: DiscoveryCard[] }> {
+  ): Promise<{ profiles: DiscoveryProfileDTO[] }> {
     // 1. Fetch user's dating preferences
     const preference = await prisma.userPreference.findUnique({
       where: { userId },
@@ -44,15 +71,20 @@ export class DiscoveryService {
     const maxAge = preference?.maxAge ?? 60;
     const preferredGender = preference?.preferredGender;
     const preferredCity = preference?.preferredCity;
+    const preferredGoal = preference?.relationshipGoal;
 
     // Calculate birth date bounds
     const now = new Date();
     const minBirthDate = new Date(now.getFullYear() - maxAge - 1, now.getMonth(), now.getDate());
     const maxBirthDate = new Date(now.getFullYear() - minAge, now.getMonth(), now.getDate());
 
-    // 2. Fetch exclusion sets: already liked, blocked, or matched users
-    const [likedRecords, blockRecords, matchesAsA, matchesAsB] = await Promise.all([
+    // 2. Fetch exclusion sets: already liked, passed, blocked, or matched users
+    const [likedRecords, passedRecords, blockRecords, matchesAsA, matchesAsB] = await Promise.all([
       prisma.like.findMany({
+        where: { fromUserId: userId },
+        select: { toUserId: true },
+      }),
+      prisma.pass.findMany({
         where: { fromUserId: userId },
         select: { toUserId: true },
       }),
@@ -74,6 +106,7 @@ export class DiscoveryService {
 
     const excludedUserIds = new Set<string>([userId]);
     likedRecords.forEach((l) => excludedUserIds.add(l.toUserId));
+    passedRecords.forEach((p) => excludedUserIds.add(p.toUserId));
     blockRecords.forEach((b) => {
       excludedUserIds.add(b.blockerId);
       excludedUserIds.add(b.blockedId);
@@ -81,7 +114,7 @@ export class DiscoveryService {
     matchesAsA.forEach((m) => excludedUserIds.add(m.userBId));
     matchesAsB.forEach((m) => excludedUserIds.add(m.userAId));
 
-    // 3. Query candidate profiles: verified pool only
+    // 3. Query candidate profiles: verified pool only, with at least one approved photo
     const candidateProfiles = await prisma.userProfile.findMany({
       where: {
         userId: { notIn: Array.from(excludedUserIds) },
@@ -91,52 +124,35 @@ export class DiscoveryService {
         },
         ...(preferredGender ? { gender: preferredGender } : {}),
         ...(preferredCity ? { city: preferredCity } : {}),
+        ...(preferredGoal ? { relationshipGoal: preferredGoal } : {}),
         user: {
           accountStatus: 'ACTIVE',
           verificationStatus: 'VERIFIED',
+        },
+        photos: {
+          some: {
+            status: 'APPROVED',
+          },
         },
       },
       include: {
         photos: {
           where: { status: 'APPROVED' },
           orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+          take: 1,
         },
         interests: {
           include: { interest: true },
-        },
-        user: {
-          select: {
-            verificationStatus: true,
-          },
         },
       },
       take: limit,
     });
 
     // 4. Format cards - strictly public dating discovery view
-    const cards: DiscoveryCard[] = candidateProfiles.map((p) => {
-      const age = calculateAge(p.dateOfBirth);
-
-      return {
-        id: p.userId,
-        firstName: p.firstName,
-        age,
-        gender: p.gender,
-        city: p.city,
-        bio: p.bio,
-        relationshipGoal: p.relationshipGoal,
-        photos: p.photos.map((photo) => ({
-          id: photo.id,
-          url: photo.storageKey,
-          isPrimary: photo.isPrimary,
-        })),
-        interests: p.interests.map((ui) => ({ id: ui.interest.id, name: ui.interest.name })),
-        isVerified: p.user.verificationStatus === 'VERIFIED',
-      };
-    });
+    const profiles = candidateProfiles.map(toDiscoveryProfile);
 
     return {
-      profiles: cards,
+      profiles,
     };
   }
 
@@ -151,6 +167,11 @@ export class DiscoveryService {
         user: {
           accountStatus: 'ACTIVE',
           verificationStatus: 'VERIFIED',
+        },
+        photos: {
+          some: {
+            status: 'APPROVED',
+          },
         },
       },
       include: {
@@ -172,7 +193,7 @@ export class DiscoveryService {
         firstName: p.firstName,
         age,
         city: p.city,
-        previewPhotoUrl: primaryPhoto?.blurredStorageKey || primaryPhoto?.storageKey || null,
+        previewPhotoUrl: primaryPhoto?.storageKey || null,
       };
     });
 

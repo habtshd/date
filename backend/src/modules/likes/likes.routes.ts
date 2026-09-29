@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { likesController } from './likes.controller';
 import { authenticate } from '../../middleware/auth';
-import { requireVerified } from '../../middleware/role';
+import { requireVerified } from '../../middleware/requireVerified';
 
 export async function likesRoutes(fastify: FastifyInstance): Promise<void> {
   // Like requires authentication and identity verification

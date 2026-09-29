@@ -19,6 +19,7 @@ import { photoRoutes } from './modules/photos/photo.routes';
 import { verificationRoutes } from './modules/verification/verification.routes';
 import { discoveryRoutes } from './modules/discovery/discovery.routes';
 import { likesRoutes } from './modules/likes/likes.routes';
+import { passesRoutes } from './modules/passes/passes.routes';
 import { matchesRoutes } from './modules/matches/matches.routes';
 import { conversationsRoutes } from './modules/conversations/conversations.routes';
 import { messagesRoutes } from './modules/messages/messages.routes';
@@ -110,6 +111,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(verificationRoutes, { prefix: `${prefix}/verification` });
   await app.register(discoveryRoutes, { prefix: `${prefix}/discovery` });
   await app.register(likesRoutes, { prefix: `${prefix}/likes` });
+  await app.register(passesRoutes, { prefix: `${prefix}/passes` });
   await app.register(matchesRoutes, { prefix: `${prefix}/matches` });
   await app.register(conversationsRoutes, { prefix: `${prefix}/conversations` });
   await app.register(messagesRoutes, { prefix: `${prefix}/conversations` });

@@ -164,6 +164,8 @@ model User {
   // Discovery & Interactions
   sentLikes          Like[]             @relation("SentLikes")
   receivedLikes      Like[]             @relation("ReceivedLikes")
+  passesSent         Pass[]             @relation("PassesSent")
+  passesReceived     Pass[]             @relation("PassesReceived")
 
   // Matches (Canonical user_a_id < user_b_id)
   matchesAsA         Match[]            @relation("MatchUserA")
@@ -361,8 +363,24 @@ model Like {
   toUser     User     @relation("ReceivedLikes", fields: [toUserId], references: [id], onDelete: Cascade)
 
   @@unique([fromUserId, toUserId])
+  @@index([fromUserId])
   @@index([toUserId])
   @@map("likes")
+}
+
+model Pass {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fromUserId String   @map("from_user_id") @db.Uuid
+  toUserId   String   @map("to_user_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  fromUser   User     @relation("PassesSent", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser     User     @relation("PassesReceived", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@unique([fromUserId, toUserId])
+  @@index([fromUserId])
+  @@index([toUserId])
+  @@map("passes")
 }
 
 model Match {
@@ -378,8 +396,11 @@ model Match {
   conversation Conversation?
 
   @@unique([userAId, userBId])
+  @@index([userAId])
+  @@index([userBId])
   @@index([userAId, status])
   @@index([userBId, status])
+  @@index([status])
   @@map("matches")
 }
 

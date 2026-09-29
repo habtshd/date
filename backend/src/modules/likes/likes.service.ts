@@ -3,21 +3,38 @@ import { getCanonicalPair } from '../../utils/crypto';
 
 export class LikesService {
   /**
-   * Express like towards a target profile.
-   * Atomically checks for mutual match and initializes locked conversation if matched.
+   * Express a like towards a target profile.
+   * Server validates identity, status, blocks, and detects mutual likes atomically.
    */
   async likeProfile(fromUserId: string, toUserId: string) {
     if (fromUserId === toUserId) {
-      throw new Error('You cannot like your own profile');
+      throw new Error('CANNOT_LIKE_SELF');
     }
 
-    const targetUser = await prisma.user.findUnique({
+    const target = await prisma.user.findUnique({
       where: { id: toUserId },
-      include: { profile: true },
+      select: {
+        id: true,
+        accountStatus: true,
+        verificationStatus: true,
+        profile: {
+          select: {
+            firstName: true,
+          },
+        },
+      },
     });
 
-    if (!targetUser || targetUser.accountStatus !== 'ACTIVE' || !targetUser.profile) {
-      throw new Error('Target profile is not available');
+    if (!target) {
+      throw new Error('USER_NOT_FOUND');
+    }
+
+    if (target.accountStatus !== 'ACTIVE') {
+      throw new Error('USER_UNAVAILABLE');
+    }
+
+    if (target.verificationStatus !== 'VERIFIED') {
+      throw new Error('USER_UNAVAILABLE');
     }
 
     // Check if target user has blocked liker or liker blocked target
@@ -31,10 +48,10 @@ export class LikesService {
     });
 
     if (isBlocked) {
-      throw new Error('Unable to interact with this profile');
+      throw new Error('USER_UNAVAILABLE');
     }
 
-    // Record like
+    // Record or update like
     await prisma.like.upsert({
       where: {
         fromUserId_toUserId: {
@@ -49,8 +66,8 @@ export class LikesService {
       update: {},
     });
 
-    // Check if reverse like exists (targetUser already liked fromUser)
-    const reverseLike = await prisma.like.findUnique({
+    // Check for reciprocal like
+    const reciprocalLike = await prisma.like.findUnique({
       where: {
         fromUserId_toUserId: {
           fromUserId: toUserId,
@@ -59,18 +76,24 @@ export class LikesService {
       },
     });
 
-    if (!reverseLike) {
+    if (!reciprocalLike) {
       return {
-        isMatch: false,
-        message: 'Like sent successfully',
+        liked: true,
+        matched: false,
       };
     }
 
-    // Mutual Match detected!
-    const { userAId, userBId } = getCanonicalPair(fromUserId, toUserId);
+    // Mutual match detected! Atomically create match & locked conversation
+    return this.createMatch(fromUserId, toUserId, target.profile?.firstName);
+  }
 
-    const result = await prisma.$transaction(async (tx) => {
-      // 1. Create or reactivate Match record
+  /**
+   * Atomically create or reactivate a match and its locked conversation
+   */
+  async createMatch(userOneId: string, userTwoId: string, targetFirstName?: string) {
+    const { userAId, userBId } = getCanonicalPair(userOneId, userTwoId);
+
+    return prisma.$transaction(async (tx) => {
       const match = await tx.match.upsert({
         where: {
           userAId_userBId: {
@@ -89,7 +112,6 @@ export class LikesService {
         },
       });
 
-      // 2. Create Locked Conversation record
       const conversation = await tx.conversation.upsert({
         where: { matchId: match.id },
         create: {
@@ -99,7 +121,7 @@ export class LikesService {
         update: {},
       });
 
-      // 3. Ensure both participants have membership records
+      // Ensure membership records exist for both users
       await tx.conversationMember.upsert({
         where: {
           conversationId_userId: {
@@ -122,44 +144,32 @@ export class LikesService {
         update: {},
       });
 
-      // 4. Create Match notification for both users
+      // Send match notifications to both participants
       await tx.notification.createMany({
         data: [
           {
-            userId: userAId,
+            userId: userOneId,
             type: 'NEW_MATCH',
-            title: 'New Match!',
-            body: 'You have a new mutual match.',
+            title: 'You have a new match',
+            body: targetFirstName ? `You matched with ${targetFirstName}.` : 'You have a new mutual match.',
           },
           {
-            userId: userBId,
+            userId: userTwoId,
             type: 'NEW_MATCH',
-            title: 'New Match!',
+            title: 'You have a new match',
             body: 'You have a new mutual match.',
           },
         ],
       });
 
       return {
+        liked: true,
+        matched: true,
         matchId: match.id,
         conversationId: conversation.id,
         conversationStatus: conversation.status,
       };
     });
-
-    return {
-      isMatch: true,
-      message: "It's a Match! Choose 'Start Chat' to unlock this conversation.",
-      match: {
-        matchId: result.matchId,
-        conversationId: result.conversationId,
-        conversationStatus: result.conversationStatus,
-        partner: {
-          userId: targetUser.id,
-          firstName: targetUser.profile.firstName,
-        },
-      },
-    };
   }
 
   /**
