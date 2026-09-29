@@ -1,8 +1,8 @@
 import { prisma } from '../../plugins/prisma';
-import { VerificationStatus } from '@prisma/client';
+import { calculateAge } from '../../utils/age';
 
 export interface DiscoveryCard {
-  userId: string;
+  id: string;
   firstName: string;
   age: number;
   gender: string;
@@ -18,18 +18,23 @@ export interface DiscoveryCard {
   isVerified: boolean;
 }
 
+export interface PreviewCard {
+  id: string;
+  firstName: string;
+  age: number;
+  city: string;
+  previewPhotoUrl: string | null;
+}
+
 export class DiscoveryService {
   /**
-   * Generates discovery feed based on verification status and user preferences.
-   * If requesting user is UNVERIFIED, delivers teaser cards with ONLY server-blurred photos.
+   * Generates dating discovery feed for verified users based on preferences.
+   * Strictly returns sanitized dating profiles (no PII, no phone, no identity documents).
    */
   async getDiscoveryFeed(
     userId: string,
-    verificationStatus: VerificationStatus,
     limit = 20
-  ): Promise<{ profiles: DiscoveryCard[]; isTeaserMode: boolean }> {
-    const isTeaserMode = verificationStatus !== 'VERIFIED';
-
+  ): Promise<{ profiles: DiscoveryCard[] }> {
     // 1. Fetch user's dating preferences
     const preference = await prisma.userPreference.findUnique({
       where: { userId },
@@ -76,7 +81,7 @@ export class DiscoveryService {
     matchesAsA.forEach((m) => excludedUserIds.add(m.userBId));
     matchesAsB.forEach((m) => excludedUserIds.add(m.userAId));
 
-    // 3. Query candidate profiles
+    // 3. Query candidate profiles: verified pool only
     const candidateProfiles = await prisma.userProfile.findMany({
       where: {
         userId: { notIn: Array.from(excludedUserIds) },
@@ -88,7 +93,7 @@ export class DiscoveryService {
         ...(preferredCity ? { city: preferredCity } : {}),
         user: {
           accountStatus: 'ACTIVE',
-          verificationStatus: 'VERIFIED', // verified pool only
+          verificationStatus: 'VERIFIED',
         },
       },
       include: {
@@ -105,38 +110,75 @@ export class DiscoveryService {
           },
         },
       },
-      take: isTeaserMode ? 5 : limit,
+      take: limit,
     });
 
-    // 4. Format cards - strictly apply the image privacy rule
+    // 4. Format cards - strictly public dating discovery view
     const cards: DiscoveryCard[] = candidateProfiles.map((p) => {
-      const birthYear = p.dateOfBirth.getFullYear();
-      const currentYear = new Date().getFullYear();
-      const age = currentYear - birthYear;
+      const age = calculateAge(p.dateOfBirth);
 
       return {
-        userId: p.userId,
-        firstName: isTeaserMode ? `${p.firstName.charAt(0)}***` : p.firstName,
+        id: p.userId,
+        firstName: p.firstName,
         age,
         gender: p.gender,
         city: p.city,
-        bio: isTeaserMode ? 'Verify your identity to read full profile bio.' : p.bio,
+        bio: p.bio,
         relationshipGoal: p.relationshipGoal,
         photos: p.photos.map((photo) => ({
           id: photo.id,
-          url: isTeaserMode
-            ? (photo.blurredStorageKey || photo.storageKey)
-            : photo.storageKey,
+          url: photo.storageKey,
           isPrimary: photo.isPrimary,
         })),
-        interests: isTeaserMode ? [] : p.interests.map((ui) => ({ id: ui.interest.id, name: ui.interest.name })),
+        interests: p.interests.map((ui) => ({ id: ui.interest.id, name: ui.interest.name })),
         isVerified: p.user.verificationStatus === 'VERIFIED',
       };
     });
 
     return {
       profiles: cards,
-      isTeaserMode,
+    };
+  }
+
+  /**
+   * Safe preview feed for unverified accounts.
+   * Returns restricted preview cards with blurred/low-resolution images and limited info.
+   */
+  async getDiscoveryPreview(userId: string): Promise<{ profiles: PreviewCard[]; verificationRequired: boolean }> {
+    const candidateProfiles = await prisma.userProfile.findMany({
+      where: {
+        userId: { not: userId },
+        user: {
+          accountStatus: 'ACTIVE',
+          verificationStatus: 'VERIFIED',
+        },
+      },
+      include: {
+        photos: {
+          where: { status: 'APPROVED' },
+          orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+          take: 1,
+        },
+      },
+      take: 5,
+    });
+
+    const profiles: PreviewCard[] = candidateProfiles.map((p) => {
+      const age = calculateAge(p.dateOfBirth);
+      const primaryPhoto = p.photos[0];
+
+      return {
+        id: p.userId,
+        firstName: p.firstName,
+        age,
+        city: p.city,
+        previewPhotoUrl: primaryPhoto?.blurredStorageKey || primaryPhoto?.storageKey || null,
+      };
+    });
+
+    return {
+      profiles,
+      verificationRequired: true,
     };
   }
 }

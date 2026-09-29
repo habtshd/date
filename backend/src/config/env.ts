@@ -22,6 +22,7 @@ const envSchema = z.object({
 
   VERIFICATION_PROVIDER: z.string().default('FAYDA'),
   PAYMENT_PROVIDER: z.string().default('CHAPA'),
+  API_BASE_URL: z.string().default('http://localhost:3000'),
 
   CORS_ORIGIN: z.string().default('*'),
   CONVERSATION_UNLOCK_PRICE_ETB: z.coerce.number().default(50.0),

@@ -1,45 +1,26 @@
-import { generateOpaqueToken } from '../../utils/crypto';
+import { VerificationProvider } from './verification.types';
+import { FaydaVerificationProvider } from './fayda.provider';
+import { MockVerificationProvider } from './mock.provider';
+import { VerificationService } from './verification.service';
 
-export interface VerificationInitResult {
-  providerReference: string;
-  sessionToken: string;
-  verificationUrl?: string;
-}
+export * from './verification.types';
+export * from './fayda.provider';
+export * from './mock.provider';
+export * from './verification.service';
 
-export interface VerificationCheckResult {
-  providerReference: string;
-  status: 'VERIFIED' | 'FAILED' | 'PENDING';
-}
+const defaultProvider =
+  process.env.NODE_ENV === 'test'
+    ? new MockVerificationProvider()
+    : new FaydaVerificationProvider();
 
-export interface IVerificationProvider {
-  name: string;
-  initiate(userId: string): Promise<VerificationInitResult>;
-  verifyCallback(payload: Record<string, unknown>): Promise<VerificationCheckResult>;
-}
+export const defaultVerificationService = new VerificationService(
+  defaultProvider,
+  defaultProvider.name
+);
 
-export class FaydaVerificationProvider implements IVerificationProvider {
-  name = 'FAYDA';
-
-  async initiate(userId: string): Promise<VerificationInitResult> {
-    const providerReference = `FAYDA_${userId.substring(0, 8)}_${generateOpaqueToken(8).toUpperCase()}`;
-    return {
-      providerReference,
-      sessionToken: generateOpaqueToken(16),
-      verificationUrl: `https://fayda.et/kyc-portal?ref=${providerReference}`,
-    };
+export function getVerificationProvider(name = 'FAYDA'): VerificationProvider {
+  if (name.toUpperCase() === 'MOCK' || process.env.NODE_ENV === 'test') {
+    return new MockVerificationProvider();
   }
-
-  async verifyCallback(payload: Record<string, unknown>): Promise<VerificationCheckResult> {
-    const providerReference = (payload.providerReference || payload.ref) as string;
-    const status = payload.status === 'SUCCESS' || payload.status === 'VERIFIED' ? 'VERIFIED' : 'FAILED';
-
-    return {
-      providerReference,
-      status,
-    };
-  }
-}
-
-export function getVerificationProvider(_name = 'FAYDA'): IVerificationProvider {
   return new FaydaVerificationProvider();
 }

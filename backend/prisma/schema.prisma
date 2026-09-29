@@ -29,6 +29,16 @@ enum VerificationStatus {
   @@map("verification_status_enum")
 }
 
+enum VerificationRecordStatus {
+  PENDING
+  VERIFIED
+  FAILED
+  EXPIRED
+  CANCELLED
+
+  @@map("verification_record_status_enum")
+}
+
 enum Gender {
   MALE
   FEMALE
@@ -265,17 +275,20 @@ model UserInterest {
 // ============================================================================
 
 model VerificationRecord {
-  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId            String             @map("user_id") @db.Uuid
-  provider          String             @db.VarChar(50)
-  status            VerificationStatus @default(PENDING)
-  providerReference String             @map("provider_reference") @db.VarChar(128)
-  verifiedAt        DateTime?          @map("verified_at") @db.Timestamptz()
-  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz()
+  id                String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String                   @map("user_id") @db.Uuid
+  provider          String                   @db.VarChar(50)
+  status            VerificationRecordStatus @default(PENDING)
+  providerReference String?                  @map("provider_reference") @db.VarChar(128)
+  verifiedAt        DateTime?                @map("verified_at") @db.Timestamptz()
+  createdAt         DateTime                 @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt         DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
 
-  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
   @@index([userId, status])
+  @@index([provider, providerReference])
   @@map("verification_records")
 }
 

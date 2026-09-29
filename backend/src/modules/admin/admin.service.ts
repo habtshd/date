@@ -211,15 +211,13 @@ export class AdminService {
 
     const [records, total] = await Promise.all([
       prisma.verificationRecord.findMany({
-        include: {
-          user: {
-            select: {
-              id: true,
-              phoneNumber: true,
-              verificationStatus: true,
-              profile: { select: { firstName: true, city: true } },
-            },
-          },
+        select: {
+          id: true,
+          userId: true,
+          status: true,
+          provider: true,
+          verifiedAt: true,
+          createdAt: true,
         },
         orderBy: { createdAt: 'desc' },
         skip,
@@ -229,7 +227,14 @@ export class AdminService {
     ]);
 
     return {
-      records,
+      records: records.map((r) => ({
+        id: r.id,
+        userId: r.userId,
+        status: r.status,
+        provider: r.provider,
+        verifiedAt: r.verifiedAt,
+        createdAt: r.createdAt,
+      })),
       pagination: {
         page,
         limit,

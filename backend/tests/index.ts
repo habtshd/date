@@ -1,6 +1,7 @@
 import { runCryptoTests } from './crypto.test';
 import { runSchemaTests } from './schemas.test';
 import { runFastifyAppTests } from './fastify-app.test';
+import { runVerificationTests } from './verification.test';
 
 async function main() {
   console.log('\n======================================================');
@@ -11,6 +12,7 @@ async function main() {
     await runCryptoTests();
     runSchemaTests();
     await runFastifyAppTests();
+    await runVerificationTests();
 
     console.log('\n======================================================');
     console.log('🎉 ALL ARCHITECTURE & FASTIFY TESTS PASSED SUCCESSFULLY');
