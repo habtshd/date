@@ -54,20 +54,20 @@ export class UsersService {
       include: {
         profile: {
           include: {
-            profilePhoto: true,
+            primaryPhoto: true,
+            photos: {
+              where: { status: 'APPROVED' },
+              orderBy: { isPrimary: 'desc' },
+            },
+            interests: {
+              include: { interest: true },
+            },
           },
-        },
-        photos: {
-          where: { status: 'APPROVED' },
-          orderBy: { isPrimary: 'desc' },
-        },
-        interests: {
-          include: { interest: true },
         },
       },
     });
 
-    if (!user || user.accountStatus !== 'ACTIVE') {
+    if (!user || user.accountStatus !== 'ACTIVE' || !user.profile) {
       throw new Error('User not found or account is not active');
     }
 
@@ -78,29 +78,27 @@ export class UsersService {
     });
 
     const isViewerVerified = viewer?.verificationStatus === 'VERIFIED';
+    const profile = user.profile;
 
     return {
       id: user.id,
       verificationStatus: user.verificationStatus,
       isVerified: user.verificationStatus === 'VERIFIED',
-      profile: user.profile
-        ? {
-            firstName: user.profile.firstName,
-            gender: user.profile.gender,
-            city: user.profile.city,
-            bio: user.profile.bio,
-            relationshipGoal: user.profile.relationshipGoal,
-            dateOfBirth: isViewerVerified ? user.profile.dateOfBirth : undefined,
-            // If viewer is unverified, provide blurred storage key
-            primaryPhoto: isViewerVerified
-              ? user.profile.profilePhoto?.storageKey
-              : user.profile.profilePhoto?.blurredStorageKey || user.profile.profilePhoto?.storageKey,
-          }
-        : null,
+      profile: {
+        firstName: profile.firstName,
+        gender: profile.gender,
+        city: profile.city,
+        bio: profile.bio,
+        relationshipGoal: profile.relationshipGoal,
+        dateOfBirth: isViewerVerified ? profile.dateOfBirth : undefined,
+        primaryPhoto: isViewerVerified
+          ? profile.primaryPhoto?.storageKey
+          : profile.primaryPhoto?.blurredStorageKey || profile.primaryPhoto?.storageKey,
+      },
       photos: isViewerVerified
-        ? user.photos.map((p) => ({ id: p.id, url: p.storageKey, isPrimary: p.isPrimary }))
-        : user.photos.slice(0, 1).map((p) => ({ id: p.id, url: p.blurredStorageKey || p.storageKey, isPrimary: p.isPrimary })),
-      interests: user.interests.map((ui) => ui.interest.name),
+        ? profile.photos.map((p) => ({ id: p.id, url: p.storageKey, isPrimary: p.isPrimary }))
+        : profile.photos.slice(0, 1).map((p) => ({ id: p.id, url: p.blurredStorageKey || p.storageKey, isPrimary: p.isPrimary })),
+      interests: profile.interests.map((ui) => ui.interest.name),
     };
   }
 }

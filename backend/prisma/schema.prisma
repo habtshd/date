@@ -51,6 +51,7 @@ enum PhotoStatus {
   PENDING
   APPROVED
   REJECTED
+  DELETED
 
   @@map("photo_status_enum")
 }
@@ -145,10 +146,7 @@ model User {
 
   // Relations
   profile            UserProfile?
-  preference         UserPreference?
   verificationRecords VerificationRecord[]
-  photos             ProfilePhoto[]
-  interests          UserInterest[]
   sessions           Session[]
   devices            Device[]
   notifications      Notification[]
@@ -197,19 +195,22 @@ model PhoneVerification {
 // ============================================================================
 
 model UserProfile {
-  userId           String           @id @map("user_id") @db.Uuid
-  firstName        String           @map("first_name") @db.VarChar(50)
-  dateOfBirth      DateTime         @map("date_of_birth") @db.Date
+  userId           String            @id @map("user_id") @db.Uuid
+  firstName        String            @map("first_name") @db.VarChar(50)
+  dateOfBirth      DateTime          @map("date_of_birth") @db.Date
   gender           Gender
-  city             String           @db.VarChar(100)
-  bio              String?
-  profilePhotoId   String?          @map("profile_photo_id") @db.Uuid
-  relationshipGoal RelationshipGoal @default(SERIOUS_RELATIONSHIP) @map("relationship_goal")
-  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt        DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  city             String            @db.VarChar(100)
+  bio              String?           @db.VarChar(1000)
+  relationshipGoal RelationshipGoal? @default(SERIOUS_RELATIONSHIP) @map("relationship_goal")
+  primaryPhotoId   String?           @map("primary_photo_id") @db.Uuid
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt        DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
 
-  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  profilePhoto     ProfilePhoto?    @relation("PrimaryProfilePhoto", fields: [profilePhotoId], references: [id], onDelete: SetNull)
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  primaryPhoto     ProfilePhoto?     @relation("PrimaryProfilePhoto", fields: [primaryPhotoId], references: [id], onDelete: SetNull)
+  preferences      UserPreference?
+  photos           ProfilePhoto[]    @relation("UserPhotos")
+  interests        UserInterest[]
 
   @@index([gender, city])
   @@map("user_profiles")
@@ -222,14 +223,14 @@ model UserProfile {
 model UserPreference {
   userId           String            @id @map("user_id") @db.Uuid
   minAge           Int               @default(18) @map("min_age") @db.SmallInt
-  maxAge           Int               @default(55) @map("max_age") @db.SmallInt
+  maxAge           Int               @default(100) @map("max_age") @db.SmallInt
   preferredGender  Gender?           @map("preferred_gender")
   preferredCity    String?           @map("preferred_city") @db.VarChar(100)
   relationshipGoal RelationshipGoal? @map("relationship_goal")
   maxDistanceKm    Int?              @default(50) @map("max_distance_km")
   updatedAt        DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
 
-  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user             UserProfile       @relation(fields: [userId], references: [userId], onDelete: Cascade)
 
   @@map("user_preferences")
 }
@@ -248,13 +249,14 @@ model Interest {
 }
 
 model UserInterest {
-  userId     String   @map("user_id") @db.Uuid
-  interestId String   @map("interest_id") @db.Uuid
+  userId     String      @map("user_id") @db.Uuid
+  interestId String      @map("interest_id") @db.Uuid
 
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  interest   Interest @relation(fields: [interestId], references: [id], onDelete: Cascade)
+  user       UserProfile @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  interest   Interest    @relation(fields: [interestId], references: [id], onDelete: Cascade)
 
   @@id([userId, interestId])
+  @@index([interestId])
   @@map("user_interests")
 }
 
@@ -284,15 +286,17 @@ model VerificationRecord {
 model ProfilePhoto {
   id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId            String        @map("user_id") @db.Uuid
-  storageKey        String        @map("storage_key")
+  storageKey        String        @unique @map("storage_key")
   blurredStorageKey String?       @map("blurred_storage_key")
   isPrimary         Boolean       @default(false) @map("is_primary")
   status            PhotoStatus   @default(PENDING)
   createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz()
 
-  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              UserProfile   @relation("UserPhotos", fields: [userId], references: [userId], onDelete: Cascade)
   usedAsProfile     UserProfile[] @relation("PrimaryProfilePhoto")
 
+  @@index([userId])
+  @@index([userId, status])
   @@index([userId, isPrimary])
   @@map("profile_photos")
 }

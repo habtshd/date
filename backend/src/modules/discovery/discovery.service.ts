@@ -8,7 +8,7 @@ export interface DiscoveryCard {
   gender: string;
   city: string;
   bio?: string | null;
-  relationshipGoal: string;
+  relationshipGoal?: string | null;
   photos: {
     id: string;
     url: string;
@@ -92,16 +92,16 @@ export class DiscoveryService {
         },
       },
       include: {
+        photos: {
+          where: { status: 'APPROVED' },
+          orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+        },
+        interests: {
+          include: { interest: true },
+        },
         user: {
           select: {
             verificationStatus: true,
-            photos: {
-              where: { status: 'APPROVED' },
-              orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
-            },
-            interests: {
-              include: { interest: true },
-            },
           },
         },
       },
@@ -122,14 +122,14 @@ export class DiscoveryService {
         city: p.city,
         bio: isTeaserMode ? 'Verify your identity to read full profile bio.' : p.bio,
         relationshipGoal: p.relationshipGoal,
-        photos: p.user.photos.map((photo) => ({
+        photos: p.photos.map((photo) => ({
           id: photo.id,
           url: isTeaserMode
             ? (photo.blurredStorageKey || photo.storageKey)
             : photo.storageKey,
           isPrimary: photo.isPrimary,
         })),
-        interests: isTeaserMode ? [] : p.user.interests.map((ui) => ({ id: ui.interest.id, name: ui.interest.name })),
+        interests: isTeaserMode ? [] : p.interests.map((ui) => ({ id: ui.interest.id, name: ui.interest.name })),
         isVerified: p.user.verificationStatus === 'VERIFIED',
       };
     });

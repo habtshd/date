@@ -19,11 +19,11 @@ export class MatchesService {
                 firstName: true,
                 dateOfBirth: true,
                 city: true,
+                photos: {
+                  where: { isPrimary: true, status: 'APPROVED' },
+                  take: 1,
+                },
               },
-            },
-            photos: {
-              where: { isPrimary: true },
-              take: 1,
             },
           },
         },
@@ -35,11 +35,11 @@ export class MatchesService {
                 firstName: true,
                 dateOfBirth: true,
                 city: true,
+                photos: {
+                  where: { isPrimary: true, status: 'APPROVED' },
+                  take: 1,
+                },
               },
-            },
-            photos: {
-              where: { isPrimary: true },
-              take: 1,
             },
           },
         },
@@ -71,7 +71,7 @@ export class MatchesService {
           firstName: partnerUser.profile?.firstName ?? 'Match',
           age,
           city: partnerUser.profile?.city ?? '',
-          primaryPhotoUrl: partnerUser.photos[0]?.storageKey ?? null,
+          primaryPhotoUrl: partnerUser.profile?.photos[0]?.storageKey ?? null,
         },
       };
     });

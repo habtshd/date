@@ -14,7 +14,8 @@ import { wsManager } from './plugins/websocket';
 // Module Route Imports
 import { authRoutes } from './modules/auth/auth.routes';
 import { usersRoutes } from './modules/users/users.routes';
-import { profilesRoutes } from './modules/profiles/profiles.routes';
+import { profileRoutes } from './modules/profiles/profile.routes';
+import { photoRoutes } from './modules/photos/photo.routes';
 import { verificationRoutes } from './modules/verification/verification.routes';
 import { discoveryRoutes } from './modules/discovery/discovery.routes';
 import { likesRoutes } from './modules/likes/likes.routes';
@@ -103,8 +104,9 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   await app.register(authRoutes, { prefix: `${prefix}/auth` });
   await app.register(usersRoutes, { prefix: `${prefix}/users` });
-  await app.register(profilesRoutes, { prefix: `${prefix}/profiles` });
-  await app.register(profilesRoutes, { prefix: `${prefix}/profile` }); // Alias for profile
+  await app.register(profileRoutes, { prefix: `${prefix}/profile` });
+  await app.register(profileRoutes, { prefix: `${prefix}/profiles` });
+  await app.register(photoRoutes, { prefix: `${prefix}/photos` });
   await app.register(verificationRoutes, { prefix: `${prefix}/verification` });
   await app.register(discoveryRoutes, { prefix: `${prefix}/discovery` });
   await app.register(likesRoutes, { prefix: `${prefix}/likes` });

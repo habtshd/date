@@ -18,16 +18,24 @@ export class ConversationsService {
                   select: {
                     id: true,
                     verificationStatus: true,
-                    profile: { select: { firstName: true } },
-                    photos: { where: { isPrimary: true }, take: 1 },
+                    profile: {
+                      select: {
+                        firstName: true,
+                        photos: { where: { isPrimary: true, status: 'APPROVED' }, take: 1 },
+                      },
+                    },
                   },
                 },
                 userB: {
                   select: {
                     id: true,
                     verificationStatus: true,
-                    profile: { select: { firstName: true } },
-                    photos: { where: { isPrimary: true }, take: 1 },
+                    profile: {
+                      select: {
+                        firstName: true,
+                        photos: { where: { isPrimary: true, status: 'APPROVED' }, take: 1 },
+                      },
+                    },
                   },
                 },
               },
@@ -58,7 +66,7 @@ export class ConversationsService {
         partner: {
           userId: partner.id,
           firstName: partner.profile?.firstName ?? 'Match',
-          photoUrl: partner.photos[0]?.storageKey ?? null,
+          photoUrl: partner.profile?.photos[0]?.storageKey ?? null,
           isVerified: partner.verificationStatus === 'VERIFIED',
         },
         lastMessage: lastMsg
@@ -87,16 +95,28 @@ export class ConversationsService {
               select: {
                 id: true,
                 verificationStatus: true,
-                profile: { select: { firstName: true, city: true, bio: true } },
-                photos: { where: { isPrimary: true }, take: 1 },
+                profile: {
+                  select: {
+                    firstName: true,
+                    city: true,
+                    bio: true,
+                    photos: { where: { isPrimary: true, status: 'APPROVED' }, take: 1 },
+                  },
+                },
               },
             },
             userB: {
               select: {
                 id: true,
                 verificationStatus: true,
-                profile: { select: { firstName: true, city: true, bio: true } },
-                photos: { where: { isPrimary: true }, take: 1 },
+                profile: {
+                  select: {
+                    firstName: true,
+                    city: true,
+                    bio: true,
+                    photos: { where: { isPrimary: true, status: 'APPROVED' }, take: 1 },
+                  },
+                },
               },
             },
           },
@@ -134,7 +154,7 @@ export class ConversationsService {
         firstName: partner.profile?.firstName ?? 'Match',
         city: partner.profile?.city ?? '',
         bio: partner.profile?.bio ?? '',
-        photoUrl: partner.photos[0]?.storageKey ?? null,
+        photoUrl: partner.profile?.photos[0]?.storageKey ?? null,
         isVerified: partner.verificationStatus === 'VERIFIED',
       },
     };
