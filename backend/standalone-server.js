@@ -5,8 +5,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors({ origin: '*' }));
-app.use(express.json());
-app.use(express.raw({ type: '*/*', limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(express.raw({ type: '*/*', limit: '50mb' }));
 
 // In-memory State Store
 const state = {
@@ -397,6 +398,7 @@ const initialPosts = [
     authorPhotoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
     category: 'Date Idea',
     content: 'A traditional Buna Qala coffee ceremony followed by a late afternoon walk through Entoto Park overlooking the Addis skyline. Best conversation starter ever! ☕🌅',
+    imageUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=1000&q=80',
     likesCount: 14,
     isLiked: false,
     createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
@@ -410,6 +412,7 @@ const initialPosts = [
     authorPhotoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
     category: 'Deep Thought',
     content: 'Looking for a partnership where we respect our Ethiopian family roots and traditions, while giving each other the freedom to build modern dreams and travel the world together. 🌍✨',
+    imageUrl: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=1000&q=80',
     likesCount: 9,
     isLiked: false,
     createdAt: new Date(Date.now() - 3600000 * 6).toISOString(),
@@ -423,6 +426,7 @@ const initialPosts = [
     authorPhotoUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=400&q=80',
     category: 'Weekend Plan',
     content: 'Sunday afternoon acoustic jazz at Fendika Cultural Center and debating Ethiopian literature over ginger tea. Who wants to join? 🎷📖',
+    imageUrl: 'https://images.unsplash.com/photo-1511192336575-5a79af67a629?auto=format&fit=crop&w=1000&q=80',
     likesCount: 19,
     isLiked: false,
     createdAt: new Date(Date.now() - 3600000 * 12).toISOString(),
@@ -436,7 +440,7 @@ app.get('/api/v1/posts', (req, res) => {
 });
 
 app.post('/api/v1/posts', (req, res) => {
-  const { content, category } = req.body || {};
+  const { content, category, imageUrl } = req.body || {};
   if (!content || !content.trim()) {
     return res.status(400).json({ error: 'Content is required' });
   }
@@ -449,6 +453,7 @@ app.post('/api/v1/posts', (req, res) => {
     authorPhotoUrl: '',
     category: category || 'Date Idea',
     content: content.trim(),
+    imageUrl: imageUrl || null,
     likesCount: 0,
     isLiked: false,
     createdAt: new Date().toISOString(),

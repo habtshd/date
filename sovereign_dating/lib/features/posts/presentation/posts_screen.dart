@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -392,6 +393,12 @@ class _PostsScreenState extends ConsumerState<PostsScreen> {
             ),
           ),
 
+          // Attached Picture (if present)
+          if (post.imageUrl != null && post.imageUrl!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _buildPostImage(post.imageUrl!),
+          ],
+
           const SizedBox(height: 16),
           const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
           const SizedBox(height: 10),
@@ -481,6 +488,138 @@ class _PostsScreenState extends ConsumerState<PostsScreen> {
           fontSize: 18,
           fontWeight: FontWeight.w800,
           color: AppTheme.primaryGold,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPostImage(String url) {
+    return GestureDetector(
+      onTap: () => _openImageModal(url),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          constraints: const BoxConstraints(maxHeight: 280),
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              _buildRawImage(url),
+              Positioned(
+                top: 10,
+                right: 10,
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.5),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.fullscreen_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRawImage(String url) {
+    if (url.startsWith('data:image')) {
+      try {
+        final comma = url.indexOf(',');
+        if (comma != -1) {
+          final b64 = url.substring(comma + 1);
+          final bytes = base64Decode(b64);
+          return Image.memory(
+            bytes,
+            width: double.infinity,
+            fit: BoxFit.cover,
+          );
+        }
+      } catch (_) {}
+    }
+
+    return Image.network(
+      url,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Container(
+          height: 180,
+          color: const Color(0xFFF8FAFC),
+          child: Center(
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded /
+                      loadingProgress.expectedTotalBytes!
+                  : null,
+              strokeWidth: 2,
+              color: AppTheme.primaryGold,
+            ),
+          ),
+        );
+      },
+      errorBuilder: (_, __, ___) => Container(
+        height: 140,
+        color: const Color(0xFFF8FAFC),
+        child: const Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.broken_image_rounded, color: AppTheme.textMuted, size: 32),
+              SizedBox(height: 6),
+              Text(
+                'Image unavailable',
+                style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openImageModal(String url) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(12),
+        child: Stack(
+          alignment: Alignment.topRight,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: InteractiveViewer(
+                child: _buildRawImage(url),
+              ),
+            ),
+            Positioned(
+              top: 10,
+              right: 10,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.65),
+                  shape: BoxShape.circle,
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.close_rounded, color: Colors.white, size: 24),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

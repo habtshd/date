@@ -29,6 +29,7 @@ class PostsRepository {
   Future<CommunityPost> createPost({
     required String content,
     required String category,
+    String? imageUrl,
   }) async {
     try {
       final response = await _dio.post(
@@ -36,6 +37,7 @@ class PostsRepository {
         data: {
           'content': content,
           'category': category,
+          if (imageUrl != null && imageUrl.isNotEmpty) 'imageUrl': imageUrl,
         },
       );
       final data = response.data as Map<String, dynamic>;
@@ -50,6 +52,7 @@ class PostsRepository {
         authorPhotoUrl: '',
         category: category,
         content: content,
+        imageUrl: imageUrl,
         likesCount: 0,
         isLiked: false,
         createdAt: DateTime.now(),
@@ -77,6 +80,8 @@ class PostsRepository {
       category: 'Date Idea',
       content:
           'A traditional Buna Qala coffee ceremony followed by a late afternoon walk through Entoto Park overlooking the Addis skyline. Best conversation starter ever! ☕🌅',
+      imageUrl:
+          'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=1000&q=80',
       likesCount: 14,
       isLiked: false,
       createdAt: DateTime.now().subtract(const Duration(hours: 2)),
@@ -92,6 +97,8 @@ class PostsRepository {
       category: 'Deep Thought',
       content:
           'Looking for a partnership where we respect our Ethiopian family roots and traditions, while giving each other the freedom to build modern dreams and travel the world together. 🌍✨',
+      imageUrl:
+          'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=1000&q=80',
       likesCount: 9,
       isLiked: false,
       createdAt: DateTime.now().subtract(const Duration(hours: 6)),
@@ -107,6 +114,8 @@ class PostsRepository {
       category: 'Weekend Plan',
       content:
           'Sunday afternoon acoustic jazz at Fendika Cultural Center and debating Ethiopian literature over ginger tea. Who wants to join? 🎷📖',
+      imageUrl:
+          'https://images.unsplash.com/photo-1511192336575-5a79af67a629?auto=format&fit=crop&w=1000&q=80',
       likesCount: 19,
       isLiked: false,
       createdAt: DateTime.now().subtract(const Duration(hours: 12)),

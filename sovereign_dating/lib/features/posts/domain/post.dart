@@ -7,6 +7,7 @@ class CommunityPost {
   final String authorPhotoUrl;
   final String category;
   final String content;
+  final String? imageUrl;
   final int likesCount;
   final bool isLiked;
   final DateTime createdAt;
@@ -20,6 +21,7 @@ class CommunityPost {
     required this.authorPhotoUrl,
     required this.category,
     required this.content,
+    this.imageUrl,
     required this.likesCount,
     required this.isLiked,
     required this.createdAt,
@@ -35,6 +37,7 @@ class CommunityPost {
       authorPhotoUrl: json['authorPhotoUrl'] as String? ?? '',
       category: json['category'] as String? ?? 'Date Idea',
       content: json['content'] as String? ?? '',
+      imageUrl: json['imageUrl'] as String?,
       likesCount: json['likesCount'] as int? ?? 0,
       isLiked: json['isLiked'] as bool? ?? false,
       createdAt: json['createdAt'] != null
@@ -53,6 +56,7 @@ class CommunityPost {
       'authorPhotoUrl': authorPhotoUrl,
       'category': category,
       'content': content,
+      'imageUrl': imageUrl,
       'likesCount': likesCount,
       'isLiked': isLiked,
       'createdAt': createdAt.toIso8601String(),
@@ -68,6 +72,7 @@ class CommunityPost {
     String? authorPhotoUrl,
     String? category,
     String? content,
+    String? imageUrl,
     int? likesCount,
     bool? isLiked,
     DateTime? createdAt,
@@ -81,6 +86,7 @@ class CommunityPost {
       authorPhotoUrl: authorPhotoUrl ?? this.authorPhotoUrl,
       category: category ?? this.category,
       content: content ?? this.content,
+      imageUrl: imageUrl ?? this.imageUrl,
       likesCount: likesCount ?? this.likesCount,
       isLiked: isLiked ?? this.isLiked,
       createdAt: createdAt ?? this.createdAt,
