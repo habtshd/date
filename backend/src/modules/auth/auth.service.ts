@@ -4,6 +4,8 @@ import { env } from '../../config/env';
 import { hashSecret, verifySecret } from '../../utils/crypto';
 import { VerifyOtpInput } from './auth.schema';
 import { otpService } from './otp.service';
+import { UnauthorizedError, ForbiddenError } from '../../utils/errors';
+import { logger } from '../../utils/logger';
 
 export class AuthService {
   /**
@@ -50,7 +52,7 @@ export class AuthService {
 
     // Generate Access & Refresh Tokens
     const accessToken = jwt.sign(
-      { userId: user.id, phoneNumber: user.phoneNumber },
+      { userId: user.id, phoneNumber: user.phoneNumber, role: user.role },
       env.JWT_ACCESS_SECRET,
       { expiresIn: '15m' }
     );
@@ -109,17 +111,17 @@ export class AuthService {
   }
 
   /**
-   * Rotate access token using valid refresh token
+   * Rotate access & refresh tokens with reuse/theft detection
    */
   async refreshToken(refreshToken: string) {
     let payload: { userId: string; deviceId: string };
     try {
       payload = jwt.verify(refreshToken, env.JWT_REFRESH_SECRET) as { userId: string; deviceId: string };
     } catch {
-      throw new Error('Invalid or expired refresh token');
+      throw new UnauthorizedError('Invalid or expired refresh token', 'INVALID_REFRESH_TOKEN');
     }
 
-    const session = await prisma.session.findFirst({
+    const activeSession = await prisma.session.findFirst({
       where: {
         userId: payload.userId,
         deviceId: payload.deviceId,
@@ -128,36 +130,90 @@ export class AuthService {
       },
     });
 
-    if (!session) {
-      throw new Error('Session expired or revoked');
+    if (!activeSession) {
+      // Check if this token belonged to an already revoked session (Token reuse / theft detection)
+      const revokedSessions = await prisma.session.findMany({
+        where: {
+          userId: payload.userId,
+          deviceId: payload.deviceId,
+          revokedAt: { not: null },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+      });
+
+      for (const oldSession of revokedSessions) {
+        const wasReused = await verifySecret(oldSession.refreshTokenHash, refreshToken).catch(() => false);
+        if (wasReused) {
+          // Token reuse detected! Invalidate all sessions for this user (Section 4)
+          await prisma.session.updateMany({
+            where: { userId: payload.userId, revokedAt: null },
+            data: { revokedAt: new Date() },
+          });
+          logger.warn('Refresh token reuse detected. Revoking all sessions for security.', {
+            userId: payload.userId,
+          });
+          throw new UnauthorizedError(
+            'Security violation: Refresh token reuse detected. All sessions revoked.',
+            'TOKEN_THEFT_DETECTED'
+          );
+        }
+      }
+
+      throw new UnauthorizedError('Session expired or revoked', 'SESSION_REVOKED');
     }
 
-    const isMatch = await verifySecret(session.refreshTokenHash, refreshToken);
+    const isMatch = await verifySecret(activeSession.refreshTokenHash, refreshToken);
     if (!isMatch) {
       await prisma.session.update({
-        where: { id: session.id },
+        where: { id: activeSession.id },
         data: { revokedAt: new Date() },
       });
-      throw new Error('Session invalidation detected');
+      throw new UnauthorizedError('Session invalidation detected', 'SESSION_INVALID');
     }
 
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
-      select: { id: true, phoneNumber: true, accountStatus: true, verificationStatus: true },
+      select: { id: true, phoneNumber: true, accountStatus: true, verificationStatus: true, role: true },
     });
 
     if (!user || user.accountStatus === 'BANNED' || user.accountStatus === 'DELETED') {
-      throw new Error('User account is restricted');
+      throw new ForbiddenError('User account is restricted');
     }
 
+    // Refresh Token Rotation: Revoke token A, issue token B
     const newAccessToken = jwt.sign(
-      { userId: user.id, phoneNumber: user.phoneNumber },
+      { userId: user.id, phoneNumber: user.phoneNumber, role: user.role },
       env.JWT_ACCESS_SECRET,
       { expiresIn: '15m' }
     );
 
+    const newRefreshToken = jwt.sign(
+      { userId: user.id, deviceId: payload.deviceId },
+      env.JWT_REFRESH_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    const newRefreshTokenHash = await hashSecret(newRefreshToken);
+
+    await prisma.$transaction([
+      prisma.session.update({
+        where: { id: activeSession.id },
+        data: { revokedAt: new Date() },
+      }),
+      prisma.session.create({
+        data: {
+          userId: user.id,
+          deviceId: payload.deviceId,
+          refreshTokenHash: newRefreshTokenHash,
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        },
+      }),
+    ]);
+
     return {
       accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
       tokenType: 'Bearer',
     };
   }

@@ -8,6 +8,7 @@ import { runDatingTests } from './dating.test';
 import { runPaymentsChatTests } from './payments-chat.test';
 import { runSafetyTests } from './safety.test';
 import { runNotificationsJobsTests } from './notifications-jobs.test';
+import { runSecuritySuite } from './security/index';
 
 async function main() {
   console.log('\n======================================================');
@@ -23,6 +24,7 @@ async function main() {
     await runPaymentsChatTests();
     await runSafetyTests();
     await runNotificationsJobsTests();
+    await runSecuritySuite();
 
     console.log('\n======================================================');
     console.log('🎉 ALL ARCHITECTURE & FASTIFY TESTS PASSED SUCCESSFULLY');
