@@ -7,7 +7,7 @@ import { AuthenticatedUser } from '../types/express';
 
 interface JwtPayload {
   userId: string;
-  phone: string;
+  phoneNumber: string;
 }
 
 export async function requireAuth(req: Request, _res: Response, next: NextFunction): Promise<void> {
@@ -28,14 +28,19 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
 
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
-      select: { id: true, phone: true, role: true, status: true },
+      select: {
+        id: true,
+        phoneNumber: true,
+        accountStatus: true,
+        verificationStatus: true,
+      },
     });
 
     if (!user) {
       throw new UnauthorizedError('User account not found');
     }
 
-    if (user.status === 'BANNED' || user.status === 'DELETED') {
+    if (user.accountStatus === 'BANNED' || user.accountStatus === 'DELETED') {
       throw new ForbiddenError('Account is banned or suspended. Contact support.');
     }
 

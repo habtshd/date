@@ -7,7 +7,7 @@ export class DiscoveryController {
     try {
       const user = req.user!;
       const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 20;
-      const result = await discoveryService.getDiscoveryFeed(user.id, user.role, limit);
+      const result = await discoveryService.getDiscoveryFeed(user.id, user.verificationStatus, limit);
       sendSuccess(res, result);
     } catch (error) {
       next(error);

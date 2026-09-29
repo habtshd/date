@@ -6,14 +6,9 @@ export class VerificationController {
   async submitVerification(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
-      const { idDocumentType, idDocumentNumber, livenessSessionId } = req.body;
-      const result = await verificationService.submitVerification(
-        userId,
-        idDocumentType,
-        idDocumentNumber,
-        livenessSessionId
-      );
-      sendSuccess(res, result, 'Verification documents submitted');
+      const { provider } = req.body;
+      const result = await verificationService.submitVerification(userId, provider);
+      sendSuccess(res, result, 'Verification requested');
     } catch (error) {
       next(error);
     }
@@ -31,8 +26,8 @@ export class VerificationController {
 
   async handleWebhook(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { referenceToken, status, rejectionReason } = req.body;
-      const result = await verificationService.handleWebhook(referenceToken, status, rejectionReason);
+      const { providerReference, status } = req.body;
+      const result = await verificationService.handleWebhook(providerReference, status);
       sendSuccess(res, result, 'Webhook processed');
     } catch (error) {
       next(error);

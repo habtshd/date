@@ -1,30 +1,24 @@
 import { prisma } from '../../database/prisma';
 import { BadRequestError, NotFoundError } from '../../common/errors';
-import { GenderType, RelationIntent } from '@prisma/client';
+import { Gender, RelationshipGoal } from '@prisma/client';
 
 export class ProfilesService {
   /**
-   * Create or update current user's dating profile
+   * Create or update user profile
    */
   async upsertProfile(
     userId: string,
     data: {
-      displayName: string;
-      birthDate: string;
-      gender: GenderType;
+      firstName: string;
+      dateOfBirth: string;
+      gender: Gender;
       city: string;
-      region: string;
-      heightCm?: number;
       bio?: string;
-      relationshipIntention: RelationIntent;
-      religion?: string;
-      occupation?: string;
-      education?: string;
-      languages?: string[];
+      relationshipGoal: RelationshipGoal;
       interestIds?: string[];
     }
   ) {
-    const birthDateObj = new Date(data.birthDate);
+    const birthDateObj = new Date(data.dateOfBirth);
     const ageDiffMs = Date.now() - birthDateObj.getTime();
     const ageDate = new Date(ageDiffMs);
     const calculatedAge = Math.abs(ageDate.getUTCFullYear() - 1970);
@@ -35,32 +29,24 @@ export class ProfilesService {
 
     const { interestIds, ...profileData } = data;
 
-    const profile = await prisma.profile.upsert({
+    await prisma.userProfile.upsert({
       where: { userId },
       create: {
         userId,
         ...profileData,
-        birthDate: birthDateObj,
+        dateOfBirth: birthDateObj,
       },
       update: {
         ...profileData,
-        birthDate: birthDateObj,
-      },
-      include: {
-        user: {
-          select: {
-            role: true,
-            verification: { select: { status: true } },
-          },
-        },
+        dateOfBirth: birthDateObj,
       },
     });
 
     // Update interests if provided
     if (interestIds) {
-      await prisma.profileInterest.deleteMany({ where: { userId } });
+      await prisma.userInterest.deleteMany({ where: { userId } });
       if (interestIds.length > 0) {
-        await prisma.profileInterest.createMany({
+        await prisma.userInterest.createMany({
           data: interestIds.map((interestId) => ({ userId, interestId })),
           skipDuplicates: true,
         });
@@ -74,15 +60,21 @@ export class ProfilesService {
    * Get authenticated user's own profile
    */
   async getMyProfile(userId: string) {
-    const profile = await prisma.profile.findUnique({
+    const profile = await prisma.userProfile.findUnique({
       where: { userId },
       include: {
         user: {
           select: {
-            phone: true,
-            role: true,
-            status: true,
-            verification: { select: { status: true, verifiedAt: true } },
+            phoneNumber: true,
+            accountStatus: true,
+            verificationStatus: true,
+            photos: {
+              orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+            },
+            preference: true,
+            interests: {
+              include: { interest: true },
+            },
           },
         },
       },
@@ -92,53 +84,31 @@ export class ProfilesService {
       return null;
     }
 
-    const userInterests = await prisma.profileInterest.findMany({
-      where: { userId },
-      include: { interest: true },
-    });
-
-    const photos = await prisma.profilePhoto.findMany({
-      where: { userId },
-      orderBy: [{ isPrimary: 'desc' }, { displayOrder: 'asc' }],
-    });
-
-    const preferences = await prisma.userPreference.findUnique({
-      where: { userId },
-    });
-
     return {
       userId: profile.userId,
-      displayName: profile.displayName,
-      birthDate: profile.birthDate,
+      firstName: profile.firstName,
+      dateOfBirth: profile.dateOfBirth,
       gender: profile.gender,
       city: profile.city,
-      region: profile.region,
-      heightCm: profile.heightCm,
       bio: profile.bio,
-      relationshipIntention: profile.relationshipIntention,
-      religion: profile.religion,
-      occupation: profile.occupation,
-      education: profile.education,
-      languages: profile.languages,
-      isHidden: profile.isHidden,
-      verificationStatus: profile.user.verification?.status ?? 'UNVERIFIED',
-      photos,
-      interests: userInterests.map((pi) => pi.interest),
-      preferences,
+      relationshipGoal: profile.relationshipGoal,
+      verificationStatus: profile.user.verificationStatus,
+      photos: profile.user.photos,
+      interests: profile.user.interests.map((ui) => ui.interest),
+      preference: profile.user.preference,
     };
   }
 
   /**
    * Add photo to profile
    */
-  async addPhoto(userId: string, data: { originalUrl: string; blurredUrl: string; isPrimary: boolean; displayOrder: number }) {
+  async addPhoto(userId: string, data: { storageKey: string; blurredStorageKey?: string; isPrimary: boolean }) {
     const existingCount = await prisma.profilePhoto.count({ where: { userId } });
     if (existingCount >= 6) {
       throw new BadRequestError('Maximum of 6 photos permitted per profile');
     }
 
     if (data.isPrimary || existingCount === 0) {
-      // Unset previous primary
       await prisma.profilePhoto.updateMany({
         where: { userId, isPrimary: true },
         data: { isPrimary: false },
@@ -149,13 +119,22 @@ export class ProfilesService {
     const photo = await prisma.profilePhoto.create({
       data: {
         userId,
-        originalUrl: data.originalUrl,
-        blurredUrl: data.blurredUrl,
+        storageKey: data.storageKey,
+        blurredStorageKey: data.blurredStorageKey,
         isPrimary: data.isPrimary,
-        displayOrder: data.displayOrder ?? existingCount,
-        status: 'APPROVED', // Can route through image moderation pipeline
+        status: 'APPROVED',
       },
     });
+
+    // If set as primary, link to user_profile
+    if (data.isPrimary) {
+      await prisma.userProfile.update({
+        where: { userId },
+        data: { profilePhotoId: photo.id },
+      }).catch(() => {
+        // userProfile may not yet be created
+      });
+    }
 
     return photo;
   }
@@ -174,17 +153,21 @@ export class ProfilesService {
 
     await prisma.profilePhoto.delete({ where: { id: photoId } });
 
-    // If was primary, elect new primary
+    // If primary was deleted, promote another photo
     if (photo.isPrimary) {
       const nextPhoto = await prisma.profilePhoto.findFirst({
         where: { userId },
-        orderBy: { displayOrder: 'asc' },
+        orderBy: { createdAt: 'asc' },
       });
       if (nextPhoto) {
         await prisma.profilePhoto.update({
           where: { id: nextPhoto.id },
           data: { isPrimary: true },
         });
+        await prisma.userProfile.update({
+          where: { userId },
+          data: { profilePhotoId: nextPhoto.id },
+        }).catch(() => {});
       }
     }
 
@@ -192,24 +175,24 @@ export class ProfilesService {
   }
 
   /**
-   * Update dating preferences
+   * Update preferences
    */
   async updatePreferences(
     userId: string,
     data: {
       minAge: number;
       maxAge: number;
-      interestedInGenders: GenderType[];
-      preferredCities: string[];
-      preferredIntentions: RelationIntent[];
-      onlyVerified: boolean;
+      preferredGender?: Gender;
+      preferredCity?: string;
+      relationshipGoal?: RelationshipGoal;
+      maxDistanceKm?: number;
     }
   ) {
     if (data.minAge > data.maxAge) {
       throw new BadRequestError('Minimum age cannot be greater than maximum age');
     }
 
-    const preferences = await prisma.userPreference.upsert({
+    const preference = await prisma.userPreference.upsert({
       where: { userId },
       create: {
         userId,
@@ -220,7 +203,7 @@ export class ProfilesService {
       },
     });
 
-    return preferences;
+    return preference;
   }
 
   /**
@@ -228,7 +211,7 @@ export class ProfilesService {
    */
   async getAvailableInterests() {
     return prisma.interest.findMany({
-      orderBy: { category: 'asc' },
+      orderBy: { name: 'asc' },
     });
   }
 }

@@ -5,8 +5,9 @@ import { sendSuccess } from '../../common/response';
 export class AuthController {
   async requestOtp(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { phone } = req.body;
-      const result = await authService.requestOtp(phone);
+      const { phoneNumber, phone } = req.body;
+      const targetPhone = phoneNumber || phone;
+      const result = await authService.requestOtp(targetPhone);
       sendSuccess(res, result, 'Verification code requested');
     } catch (error) {
       next(error);
@@ -15,9 +16,9 @@ export class AuthController {
 
   async verifyOtp(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { phone, code, deviceId, deviceInfo } = req.body;
-      const ipAddress = req.ip || req.socket.remoteAddress;
-      const result = await authService.verifyOtp(phone, code, deviceId, deviceInfo, ipAddress);
+      const { phoneNumber, phone, code, deviceId, deviceType } = req.body;
+      const targetPhone = phoneNumber || phone;
+      const result = await authService.verifyOtp(targetPhone, code, deviceId, deviceType);
       sendSuccess(res, result, 'Authentication successful');
     } catch (error) {
       next(error);

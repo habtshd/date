@@ -19,9 +19,7 @@ export class MessagesController {
       const userId = req.user!.id;
       const conversationId = req.params.conversationId as string;
       const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
-      const beforeMessageId = req.query.before as string | undefined;
-
-      const result = await messagesService.getMessages(userId, conversationId, limit, beforeMessageId);
+      const result = await messagesService.getMessages(userId, conversationId, limit);
       sendSuccess(res, result);
     } catch (error) {
       next(error);

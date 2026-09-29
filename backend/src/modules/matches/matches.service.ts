@@ -8,17 +8,17 @@ export class MatchesService {
   async getUserMatches(userId: string) {
     const matches = await prisma.match.findMany({
       where: {
-        OR: [{ userLowId: userId }, { userHighId: userId }],
-        isActive: true,
+        OR: [{ userAId: userId }, { userBId: userId }],
+        status: 'ACTIVE',
       },
       include: {
-        userLow: {
+        userA: {
           select: {
             id: true,
             profile: {
               select: {
-                displayName: true,
-                birthDate: true,
+                firstName: true,
+                dateOfBirth: true,
                 city: true,
               },
             },
@@ -28,13 +28,13 @@ export class MatchesService {
             },
           },
         },
-        userHigh: {
+        userB: {
           select: {
             id: true,
             profile: {
               select: {
-                displayName: true,
-                birthDate: true,
+                firstName: true,
+                dateOfBirth: true,
                 city: true,
               },
             },
@@ -47,33 +47,32 @@ export class MatchesService {
         conversation: {
           select: {
             id: true,
-            isUnlocked: true,
+            status: true,
             unlockedAt: true,
-            lastMessageId: true,
-            updatedAt: true,
           },
         },
       },
-      orderBy: { matchedAt: 'desc' },
+      orderBy: { createdAt: 'desc' },
     });
 
     return matches.map((m) => {
-      const isLow = m.userLowId === userId;
-      const partnerUser = isLow ? m.userHigh : m.userLow;
-      const birthYear = partnerUser.profile?.birthDate.getFullYear() ?? 2000;
+      const isA = m.userAId === userId;
+      const partnerUser = isA ? m.userB : m.userA;
+      const birthYear = partnerUser.profile?.dateOfBirth.getFullYear() ?? 2000;
       const age = new Date().getFullYear() - birthYear;
 
       return {
         matchId: m.id,
-        matchedAt: m.matchedAt,
+        matchedAt: m.createdAt,
         conversationId: m.conversation?.id,
-        isUnlocked: m.conversation?.isUnlocked ?? false,
+        conversationStatus: m.conversation?.status ?? 'LOCKED',
+        isUnlocked: m.conversation?.status === 'ACTIVE',
         partner: {
           userId: partnerUser.id,
-          displayName: partnerUser.profile?.displayName ?? 'Anonymous',
+          firstName: partnerUser.profile?.firstName ?? 'Match',
           age,
           city: partnerUser.profile?.city ?? '',
-          primaryPhotoUrl: partnerUser.photos[0]?.originalUrl ?? null,
+          primaryPhotoUrl: partnerUser.photos[0]?.storageKey ?? null,
         },
       };
     });
@@ -86,22 +85,31 @@ export class MatchesService {
     const match = await prisma.match.findFirst({
       where: {
         id: matchId,
-        OR: [{ userLowId: userId }, { userHighId: userId }],
-        isActive: true,
+        OR: [{ userAId: userId }, { userBId: userId }],
+        status: 'ACTIVE',
       },
+      include: { conversation: true },
     });
 
     if (!match) {
       throw new NotFoundError('Match not found or already ended');
     }
 
-    await prisma.match.update({
-      where: { id: matchId },
-      data: {
-        isActive: false,
-        unmatchedAt: new Date(),
-        unmatchedByUserId: userId,
-      },
+    await prisma.$transaction(async (tx) => {
+      await tx.match.update({
+        where: { id: matchId },
+        data: {
+          status: 'UNMATCHED',
+          endedAt: new Date(),
+        },
+      });
+
+      if (match.conversation) {
+        await tx.conversation.update({
+          where: { id: match.conversation.id },
+          data: { status: 'CLOSED' },
+        });
+      }
     });
 
     return { message: 'Successfully unmatched' };

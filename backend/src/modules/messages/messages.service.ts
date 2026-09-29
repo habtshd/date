@@ -11,14 +11,16 @@ export class MessagesService {
     userId: string,
     conversationId: string,
     data: {
-      messageType: MessageType;
-      content?: string;
-      mediaUrl?: string;
-      mediaMetadata?: Record<string, unknown>;
+      messageType?: MessageType;
+      content: string;
     }
   ) {
     const conversation = await prisma.conversation.findUnique({
       where: { id: conversationId },
+      include: {
+        match: true,
+        members: true,
+      },
     });
 
     if (!conversation) {
@@ -26,21 +28,24 @@ export class MessagesService {
     }
 
     // 1. Membership check
-    if (conversation.userLowId !== userId && conversation.userHighId !== userId) {
+    const isMember = conversation.members.some((m) => m.userId === userId);
+    if (!isMember) {
       throw new ForbiddenError('You are not authorized to send messages in this conversation');
     }
 
-    // 2. Paywall check: Must be unlocked
-    if (!conversation.isUnlocked) {
+    // 2. Paywall check: Must be ACTIVE (unlocked)
+    if (conversation.status !== 'ACTIVE') {
       throw new ForbiddenError(
         'This conversation is locked. A payment is required before messages can be sent or read.'
       );
     }
 
-    const partnerId = conversation.userLowId === userId ? conversation.userHighId : conversation.userLowId;
+    const partnerId = conversation.match.userAId === userId
+      ? conversation.match.userBId
+      : conversation.match.userAId;
 
     // 3. Block check
-    const isBlocked = await prisma.userBlock.findFirst({
+    const isBlocked = await prisma.block.findFirst({
       where: {
         OR: [
           { blockerId: userId, blockedId: partnerId },
@@ -53,41 +58,14 @@ export class MessagesService {
       throw new ForbiddenError('Messaging is disabled because of a block between users');
     }
 
-    // 4. Create message & update conversation state atomically
-    const message = await prisma.$transaction(async (tx) => {
-      const msg = await tx.message.create({
-        data: {
-          conversationId,
-          senderId: userId,
-          messageType: data.messageType,
-          contentEncrypted: data.content,
-          mediaUrl: data.mediaUrl,
-          mediaMetadata: data.mediaMetadata ? JSON.parse(JSON.stringify(data.mediaMetadata)) : undefined,
-          status: 'SENT',
-        },
-      });
-
-      // Update conversation lastMessageId and updatedAt
-      await tx.conversation.update({
-        where: { id: conversationId },
-        data: {
-          lastMessageId: msg.id,
-          updatedAt: new Date(),
-        },
-      });
-
-      // Increment unread count for partner
-      await tx.conversationMember.updateMany({
-        where: {
-          conversationId,
-          userId: partnerId,
-        },
-        data: {
-          unreadMessagesCount: { increment: 1 },
-        },
-      });
-
-      return msg;
+    // 4. Create message
+    const message = await prisma.message.create({
+      data: {
+        conversationId,
+        senderId: userId,
+        messageType: data.messageType || 'TEXT',
+        content: data.content,
+      },
     });
 
     // 5. Broadcast to partner via WebSocket if connected
@@ -98,11 +76,20 @@ export class MessagesService {
         conversationId,
         senderId: userId,
         messageType: message.messageType,
-        content: message.contentEncrypted,
-        mediaUrl: message.mediaUrl,
+        content: message.content,
         createdAt: message.createdAt,
       },
     });
+
+    // Create Notification
+    await prisma.notification.create({
+      data: {
+        userId: partnerId,
+        type: 'NEW_MESSAGE',
+        title: 'New Message',
+        body: 'You have a new message.',
+      },
+    }).catch(() => {});
 
     return message;
   }
@@ -110,66 +97,64 @@ export class MessagesService {
   /**
    * Fetch message history for an unlocked conversation
    */
-  async getMessages(userId: string, conversationId: string, limit = 50, beforeMessageId?: string) {
+  async getMessages(userId: string, conversationId: string, limit = 50) {
     const conversation = await prisma.conversation.findUnique({
       where: { id: conversationId },
+      include: { members: true },
     });
 
     if (!conversation) {
       throw new NotFoundError('Conversation not found');
     }
 
-    // Membership check
-    if (conversation.userLowId !== userId && conversation.userHighId !== userId) {
+    const isMember = conversation.members.some((m) => m.userId === userId);
+    if (!isMember) {
       throw new ForbiddenError('Access denied to conversation history');
     }
 
-    // Paywall check: Must be unlocked
-    if (!conversation.isUnlocked) {
+    if (conversation.status !== 'ACTIVE') {
       throw new ForbiddenError('Conversation is locked. Payment required.');
-    }
-
-    let cursorFilter = {};
-    if (beforeMessageId) {
-      cursorFilter = {
-        cursor: { id: beforeMessageId },
-        skip: 1,
-      };
     }
 
     const messages = await prisma.message.findMany({
       where: {
         conversationId,
-        isDeleted: false,
+        deletedAt: null,
       },
       orderBy: { createdAt: 'desc' },
       take: limit,
-      ...cursorFilter,
+      include: {
+        reads: {
+          where: { userId },
+        },
+      },
     });
 
-    // Mark messages read for current user
-    await prisma.conversationMember.updateMany({
-      where: {
-        conversationId,
-        userId,
-      },
-      data: {
-        unreadMessagesCount: 0,
-        lastReadMessageId: messages[0]?.id,
-      },
-    });
+    // Record read markers in message_reads
+    for (const msg of messages) {
+      if (msg.senderId !== userId && msg.reads.length === 0) {
+        await prisma.messageRead.upsert({
+          where: {
+            messageId_userId: {
+              messageId: msg.id,
+              userId,
+            },
+          },
+          create: { messageId: msg.id, userId },
+          update: {},
+        }).catch(() => {});
+      }
+    }
 
     return messages.reverse().map((m) => ({
       id: m.id,
       conversationId: m.conversationId,
       senderId: m.senderId,
       messageType: m.messageType,
-      content: m.contentEncrypted,
-      mediaUrl: m.mediaUrl,
-      mediaMetadata: m.mediaMetadata,
-      status: m.status,
+      content: m.content,
       createdAt: m.createdAt,
       isMine: m.senderId === userId,
+      isRead: m.reads.length > 0,
     }));
   }
 }

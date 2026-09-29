@@ -7,27 +7,26 @@ export class LikesService {
    * Express like towards a target profile.
    * Atomically checks for mutual match and initializes locked conversation if matched.
    */
-  async likeProfile(likerId: string, targetUserId: string, isSuperlike = false) {
-    if (likerId === targetUserId) {
+  async likeProfile(fromUserId: string, toUserId: string) {
+    if (fromUserId === toUserId) {
       throw new BadRequestError('You cannot like your own profile');
     }
 
-    // Verify target profile exists and is active
     const targetUser = await prisma.user.findUnique({
-      where: { id: targetUserId },
+      where: { id: toUserId },
       include: { profile: true },
     });
 
-    if (!targetUser || targetUser.status !== 'ACTIVE' || !targetUser.profile) {
+    if (!targetUser || targetUser.accountStatus !== 'ACTIVE' || !targetUser.profile) {
       throw new NotFoundError('Target profile is not available');
     }
 
     // Check if target user has blocked liker
-    const isBlocked = await prisma.userBlock.findFirst({
+    const isBlocked = await prisma.block.findFirst({
       where: {
         OR: [
-          { blockerId: likerId, blockedId: targetUserId },
-          { blockerId: targetUserId, blockedId: likerId },
+          { blockerId: fromUserId, blockedId: toUserId },
+          { blockerId: toUserId, blockedId: fromUserId },
         ],
       },
     });
@@ -36,30 +35,27 @@ export class LikesService {
       throw new ForbiddenError('Unable to interact with this profile');
     }
 
-    // Record the like (ignore duplicate likes idempotently)
+    // Record like
     await prisma.like.upsert({
       where: {
-        likerId_likedId: {
-          likerId,
-          likedId: targetUserId,
+        fromUserId_toUserId: {
+          fromUserId,
+          toUserId,
         },
       },
       create: {
-        likerId,
-        likedId: targetUserId,
-        isSuperlike,
+        fromUserId,
+        toUserId,
       },
-      update: {
-        isSuperlike,
-      },
+      update: {},
     });
 
-    // Check if reverse like exists (targetUser already liked liker)
+    // Check if reverse like exists (targetUser already liked fromUser)
     const reverseLike = await prisma.like.findUnique({
       where: {
-        likerId_likedId: {
-          likerId: targetUserId,
-          likedId: likerId,
+        fromUserId_toUserId: {
+          fromUserId: toUserId,
+          toUserId: fromUserId,
         },
       },
     });
@@ -72,42 +68,34 @@ export class LikesService {
     }
 
     // Mutual Match detected!
-    const { userLowId, userHighId } = getCanonicalPair(likerId, targetUserId);
+    const { userAId, userBId } = getCanonicalPair(fromUserId, toUserId);
 
     const result = await prisma.$transaction(async (tx) => {
       // 1. Create or reactivate Match record
       const match = await tx.match.upsert({
         where: {
-          userLowId_userHighId: {
-            userLowId,
-            userHighId,
+          userAId_userBId: {
+            userAId,
+            userBId,
           },
         },
         create: {
-          userLowId,
-          userHighId,
-          isActive: true,
+          userAId,
+          userBId,
+          status: 'ACTIVE',
         },
         update: {
-          isActive: true,
-          unmatchedAt: null,
-          unmatchedByUserId: null,
+          status: 'ACTIVE',
+          endedAt: null,
         },
       });
 
       // 2. Create Locked Conversation record
       const conversation = await tx.conversation.upsert({
-        where: {
-          userLowId_userHighId: {
-            userLowId,
-            userHighId,
-          },
-        },
+        where: { matchId: match.id },
         create: {
           matchId: match.id,
-          userLowId,
-          userHighId,
-          isUnlocked: false, // Locked until payment!
+          status: 'LOCKED',
         },
         update: {},
       });
@@ -117,10 +105,10 @@ export class LikesService {
         where: {
           conversationId_userId: {
             conversationId: conversation.id,
-            userId: userLowId,
+            userId: userAId,
           },
         },
-        create: { conversationId: conversation.id, userId: userLowId },
+        create: { conversationId: conversation.id, userId: userAId },
         update: {},
       });
 
@@ -128,17 +116,35 @@ export class LikesService {
         where: {
           conversationId_userId: {
             conversationId: conversation.id,
-            userId: userHighId,
+            userId: userBId,
           },
         },
-        create: { conversationId: conversation.id, userId: userHighId },
+        create: { conversationId: conversation.id, userId: userBId },
         update: {},
+      });
+
+      // 4. Create Match notification for both users
+      await tx.notification.createMany({
+        data: [
+          {
+            userId: userAId,
+            type: 'NEW_MATCH',
+            title: 'New Match!',
+            body: 'You have a new mutual match.',
+          },
+          {
+            userId: userBId,
+            type: 'NEW_MATCH',
+            title: 'New Match!',
+            body: 'You have a new mutual match.',
+          },
+        ],
       });
 
       return {
         matchId: match.id,
         conversationId: conversation.id,
-        isUnlocked: conversation.isUnlocked,
+        conversationStatus: conversation.status,
       };
     });
 
@@ -148,10 +154,10 @@ export class LikesService {
       match: {
         matchId: result.matchId,
         conversationId: result.conversationId,
-        isUnlocked: result.isUnlocked,
+        conversationStatus: result.conversationStatus,
         partner: {
           userId: targetUser.id,
-          displayName: targetUser.profile.displayName,
+          firstName: targetUser.profile.firstName,
         },
       },
     };
@@ -160,22 +166,8 @@ export class LikesService {
   /**
    * Pass (skip) a profile in discovery
    */
-  async passProfile(userId: string, targetUserId: string) {
-    if (userId === targetUserId) {
-      throw new BadRequestError('You cannot pass your own profile');
-    }
-
-    await prisma.profilePass.upsert({
-      where: {
-        userId_targetUserId: {
-          userId,
-          targetUserId,
-        },
-      },
-      create: { userId, targetUserId },
-      update: {},
-    });
-
+  async passProfile(_userId: string, _targetUserId: string) {
+    // In Phase 2 spec, passing is simply not creating a like; returns confirmation
     return { message: 'Profile passed' };
   }
 }

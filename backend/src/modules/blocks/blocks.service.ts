@@ -5,7 +5,7 @@ export class BlocksService {
   /**
    * Immediately block a target user
    */
-  async blockUser(blockerId: string, blockedId: string, reason?: string) {
+  async blockUser(blockerId: string, blockedId: string) {
     if (blockerId === blockedId) {
       throw new BadRequestError('You cannot block yourself');
     }
@@ -18,7 +18,7 @@ export class BlocksService {
       throw new NotFoundError('User not found');
     }
 
-    await prisma.userBlock.upsert({
+    await prisma.block.upsert({
       where: {
         blockerId_blockedId: {
           blockerId,
@@ -28,11 +28,8 @@ export class BlocksService {
       create: {
         blockerId,
         blockedId,
-        reason,
       },
-      update: {
-        reason,
-      },
+      update: {},
     });
 
     return { message: 'User blocked successfully' };
@@ -42,7 +39,7 @@ export class BlocksService {
    * Unblock a previously blocked user
    */
   async unblockUser(blockerId: string, blockedId: string) {
-    const block = await prisma.userBlock.findUnique({
+    const block = await prisma.block.findUnique({
       where: {
         blockerId_blockedId: {
           blockerId,
@@ -55,7 +52,7 @@ export class BlocksService {
       throw new NotFoundError('Block record not found');
     }
 
-    await prisma.userBlock.delete({
+    await prisma.block.delete({
       where: { id: block.id },
     });
 
@@ -66,13 +63,13 @@ export class BlocksService {
    * List blocked users
    */
   async getBlockedUsers(userId: string) {
-    const blocks = await prisma.userBlock.findMany({
+    const blocks = await prisma.block.findMany({
       where: { blockerId: userId },
       include: {
         blocked: {
           select: {
             id: true,
-            profile: { select: { displayName: true } },
+            profile: { select: { firstName: true } },
           },
         },
       },
@@ -82,9 +79,8 @@ export class BlocksService {
     return blocks.map((b) => ({
       blockId: b.id,
       blockedUserId: b.blocked.id,
-      displayName: b.blocked.profile?.displayName ?? 'User',
+      firstName: b.blocked.profile?.firstName ?? 'User',
       blockedAt: b.createdAt,
-      reason: b.reason,
     }));
   }
 }

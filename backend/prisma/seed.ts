@@ -1,162 +1,136 @@
-import { PrismaClient, AdminRole, UserRole, GenderType, RelationIntent } from '@prisma/client';
-import bcrypt from 'bcrypt';
+import { PrismaClient, Gender, RelationshipGoal } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Seeding database...');
+  console.log('🌱 Seeding database according to Phase 2 specification...');
 
-  // 1. Seed Ethiopian Cultural & Lifestyle Interests
-  const interests = [
-    { name: 'Bunna & Coffee Ceremony', category: 'Culture', iconName: 'coffee' },
-    { name: 'Ethio-Jazz & Music', category: 'Arts', iconName: 'music' },
-    { name: 'Eskista & Traditional Dance', category: 'Culture', iconName: 'activity' },
-    { name: 'Tsom & Fasting Cuisine', category: 'Food', iconName: 'utensils' },
-    { name: 'Tech & Startups', category: 'Professional', iconName: 'cpu' },
-    { name: 'Hiking in Simien / Bale', category: 'Outdoors', iconName: 'mountain' },
-    { name: 'Premier League Football', category: 'Sports', iconName: 'award' },
-    { name: 'Books & Ethiopian History', category: 'Education', iconName: 'book-open' },
-    { name: 'Weekend Road Trips', category: 'Travel', iconName: 'compass' },
-    { name: 'Photography', category: 'Creativity', iconName: 'camera' },
+  // 1. Seed Interests
+  const interestNames = [
+    'Music',
+    'Football',
+    'Travel',
+    'Reading',
+    'Fitness',
+    'Cooking',
+    'Movies',
+    'Business',
+    'Technology',
+    'Art',
+    'Bunna & Coffee',
+    'Ethio-Jazz',
   ];
 
-  for (const item of interests) {
+  for (const name of interestNames) {
     await prisma.interest.upsert({
-      where: { name: item.name },
-      create: item,
+      where: { name },
+      create: { name },
       update: {},
     });
   }
-  console.log(`✅ Seeded ${interests.length} cultural interests`);
+  console.log(`✅ Seeded ${interestNames.length} interests`);
 
-  // 2. Seed Super Admin User
-  const adminPasswordHash = await bcrypt.hash('Admin@Pass123!', 10);
-  const admin = await prisma.adminUser.upsert({
-    where: { email: 'admin@habeshadate.et' },
-    create: {
-      email: 'admin@habeshadate.et',
-      passwordHash: adminPasswordHash,
-      fullName: 'System Administrator',
-      role: AdminRole.SUPER_ADMIN,
-      isActive: true,
-    },
-    update: {},
-  });
-  console.log(`✅ Seeded Super Admin: ${admin.email}`);
-
-  // 3. Seed Verified Test User A (e.g. Selam)
+  // 2. Seed Verified Test User A (Selam)
   const userA = await prisma.user.upsert({
-    where: { phone: '+251911000001' },
+    where: { phoneNumber: '+251911000001' },
     create: {
-      phone: '+251911000001',
-      role: UserRole.VERIFIED_USER,
-      status: 'ACTIVE',
-      verification: {
-        create: {
-          status: 'VERIFIED',
-          provider: 'INTERNAL_LIVENESS',
-          referenceToken: 'VERIF_SEED_USER_A',
-          verifiedAt: new Date(),
-        },
-      },
+      phoneNumber: '+251911000001',
+      phoneVerified: true,
+      accountStatus: 'ACTIVE',
+      verificationStatus: 'VERIFIED',
       profile: {
         create: {
-          displayName: 'Selamawit',
-          birthDate: new Date('1998-04-12'),
-          gender: GenderType.FEMALE,
+          firstName: 'Selamawit',
+          dateOfBirth: new Date('1998-04-12'),
+          gender: Gender.FEMALE,
           city: 'Addis Ababa',
-          region: 'Addis Ababa',
-          heightCm: 168,
           bio: 'Architect based in Bole. Love weekend coffee ceremonies, jazz at Fendika, and exploring Ethiopian architecture.',
-          relationshipIntention: RelationIntent.LONG_TERM,
-          religion: 'Orthodox',
-          occupation: 'Architect',
-          education: 'Addis Ababa University',
-          languages: ['Amharic', 'English'],
+          relationshipGoal: RelationshipGoal.SERIOUS_RELATIONSHIP,
         },
       },
       photos: {
         create: [
           {
-            originalUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80',
-            blurredUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&blur=50',
+            storageKey: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80',
+            blurredStorageKey: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&blur=50',
             isPrimary: true,
-            displayOrder: 0,
             status: 'APPROVED',
           },
         ],
       },
-      preferences: {
+      preference: {
         create: {
           minAge: 24,
           maxAge: 36,
-          interestedInGenders: [GenderType.MALE],
-          preferredCities: ['Addis Ababa'],
-          preferredIntentions: [RelationIntent.LONG_TERM, RelationIntent.MARRIAGE],
-          onlyVerified: true,
+          preferredGender: Gender.MALE,
+          preferredCity: 'Addis Ababa',
+          relationshipGoal: RelationshipGoal.SERIOUS_RELATIONSHIP,
+          maxDistanceKm: 50,
+        },
+      },
+      verificationRecords: {
+        create: {
+          provider: 'FAYDA',
+          status: 'VERIFIED',
+          providerReference: 'FAYDA_REF_001',
+          verifiedAt: new Date(),
         },
       },
     },
     update: {},
   });
 
-  // 4. Seed Verified Test User B (e.g. Dawit)
+  // 3. Seed Verified Test User B (Dawit)
   const userB = await prisma.user.upsert({
-    where: { phone: '+251911000002' },
+    where: { phoneNumber: '+251911000002' },
     create: {
-      phone: '+251911000002',
-      role: UserRole.VERIFIED_USER,
-      status: 'ACTIVE',
-      verification: {
-        create: {
-          status: 'VERIFIED',
-          provider: 'INTERNAL_LIVENESS',
-          referenceToken: 'VERIF_SEED_USER_B',
-          verifiedAt: new Date(),
-        },
-      },
+      phoneNumber: '+251911000002',
+      phoneVerified: true,
+      accountStatus: 'ACTIVE',
+      verificationStatus: 'VERIFIED',
       profile: {
         create: {
-          displayName: 'Dawit',
-          birthDate: new Date('1995-09-20'),
-          gender: GenderType.MALE,
+          firstName: 'Dawit',
+          dateOfBirth: new Date('1995-09-20'),
+          gender: Gender.MALE,
           city: 'Addis Ababa',
-          region: 'Addis Ababa',
-          heightCm: 182,
           bio: 'Software engineer & amateur photographer. Looking for meaningful conversations and someone who appreciates a good macchiato.',
-          relationshipIntention: RelationIntent.MARRIAGE,
-          religion: 'Orthodox',
-          occupation: 'Software Engineer',
-          education: 'BSc Computer Science',
-          languages: ['Amharic', 'Oromo', 'English'],
+          relationshipGoal: RelationshipGoal.MARRIAGE,
         },
       },
       photos: {
         create: [
           {
-            originalUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80',
-            blurredUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&blur=50',
+            storageKey: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80',
+            blurredStorageKey: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&blur=50',
             isPrimary: true,
-            displayOrder: 0,
             status: 'APPROVED',
           },
         ],
       },
-      preferences: {
+      preference: {
         create: {
           minAge: 21,
           maxAge: 32,
-          interestedInGenders: [GenderType.FEMALE],
-          preferredCities: ['Addis Ababa'],
-          preferredIntentions: [RelationIntent.MARRIAGE, RelationIntent.LONG_TERM],
-          onlyVerified: true,
+          preferredGender: Gender.FEMALE,
+          preferredCity: 'Addis Ababa',
+          relationshipGoal: RelationshipGoal.MARRIAGE,
+          maxDistanceKm: 50,
+        },
+      },
+      verificationRecords: {
+        create: {
+          provider: 'FAYDA',
+          status: 'VERIFIED',
+          providerReference: 'FAYDA_REF_002',
+          verifiedAt: new Date(),
         },
       },
     },
     update: {},
   });
 
-  console.log(`✅ Seeded sample test profiles: ${userA.phone} and ${userB.phone}`);
+  console.log(`✅ Seeded sample test profiles: ${userA.phoneNumber} and ${userB.phoneNumber}`);
   console.log('🎉 Seeding completed successfully!');
 }
 

@@ -4,70 +4,67 @@ import { NotFoundError, ForbiddenError } from '../../common/errors';
 export class ConversationsService {
   /**
    * List conversations for the authenticated user.
-   * Strictly enforces Rule 4: User only sees conversations they are a member of.
+   * Strictly enforces: User only sees conversations they are a member of.
    */
   async getUserConversations(userId: string) {
-    const conversations = await prisma.conversation.findMany({
-      where: {
-        OR: [{ userLowId: userId }, { userHighId: userId }],
-      },
+    const memberships = await prisma.conversationMember.findMany({
+      where: { userId },
       include: {
-        userLow: {
-          select: {
-            id: true,
-            role: true,
-            profile: { select: { displayName: true } },
-            photos: { where: { isPrimary: true }, take: 1 },
-          },
-        },
-        userHigh: {
-          select: {
-            id: true,
-            role: true,
-            profile: { select: { displayName: true } },
-            photos: { where: { isPrimary: true }, take: 1 },
-          },
-        },
-        members: {
-          where: { userId },
-        },
-        messages: {
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-          select: {
-            id: true,
-            contentEncrypted: true,
-            messageType: true,
-            createdAt: true,
-            senderId: true,
+        conversation: {
+          include: {
+            match: {
+              include: {
+                userA: {
+                  select: {
+                    id: true,
+                    verificationStatus: true,
+                    profile: { select: { firstName: true } },
+                    photos: { where: { isPrimary: true }, take: 1 },
+                  },
+                },
+                userB: {
+                  select: {
+                    id: true,
+                    verificationStatus: true,
+                    profile: { select: { firstName: true } },
+                    photos: { where: { isPrimary: true }, take: 1 },
+                  },
+                },
+              },
+            },
+            messages: {
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+            },
           },
         },
       },
-      orderBy: { updatedAt: 'desc' },
+      orderBy: { joinedAt: 'desc' },
     });
 
-    return conversations.map((c) => {
-      const isLow = c.userLowId === userId;
-      const partner = isLow ? c.userHigh : c.userLow;
-      const myMembership = c.members[0];
+    return memberships.map((m) => {
+      const c = m.conversation;
+      const match = c.match;
+      const isUserA = match.userAId === userId;
+      const partner = isUserA ? match.userB : match.userA;
       const lastMsg = c.messages[0];
 
       return {
         id: c.id,
         matchId: c.matchId,
-        isUnlocked: c.isUnlocked,
+        status: c.status,
+        isUnlocked: c.status === 'ACTIVE',
         unlockedAt: c.unlockedAt,
-        unreadCount: myMembership?.unreadMessagesCount ?? 0,
         partner: {
           userId: partner.id,
-          displayName: partner.profile?.displayName ?? 'Match',
-          photoUrl: partner.photos[0]?.originalUrl ?? null,
-          isVerified: partner.role === 'VERIFIED_USER',
+          firstName: partner.profile?.firstName ?? 'Match',
+          photoUrl: partner.photos[0]?.storageKey ?? null,
+          isVerified: partner.verificationStatus === 'VERIFIED',
         },
         lastMessage: lastMsg
           ? {
               id: lastMsg.id,
-              preview: c.isUnlocked ? lastMsg.contentEncrypted : 'Locked conversation',
+              preview: c.status === 'ACTIVE' ? lastMsg.content : 'Locked conversation',
               messageType: lastMsg.messageType,
               createdAt: lastMsg.createdAt,
               isSentByMe: lastMsg.senderId === userId,
@@ -84,24 +81,30 @@ export class ConversationsService {
     const conversation = await prisma.conversation.findUnique({
       where: { id: conversationId },
       include: {
-        userLow: {
-          select: {
-            id: true,
-            role: true,
-            profile: { select: { displayName: true, city: true, bio: true } },
-            photos: { where: { isPrimary: true }, take: 1 },
+        match: {
+          include: {
+            userA: {
+              select: {
+                id: true,
+                verificationStatus: true,
+                profile: { select: { firstName: true, city: true, bio: true } },
+                photos: { where: { isPrimary: true }, take: 1 },
+              },
+            },
+            userB: {
+              select: {
+                id: true,
+                verificationStatus: true,
+                profile: { select: { firstName: true, city: true, bio: true } },
+                photos: { where: { isPrimary: true }, take: 1 },
+              },
+            },
           },
         },
-        userHigh: {
-          select: {
-            id: true,
-            role: true,
-            profile: { select: { displayName: true, city: true, bio: true } },
-            photos: { where: { isPrimary: true }, take: 1 },
-          },
-        },
-        unlockRecord: {
-          select: { unlockedAt: true, unlockedByUserId: true },
+        members: true,
+        payments: {
+          where: { status: 'SUCCESS' },
+          take: 1,
         },
       },
     });
@@ -110,26 +113,29 @@ export class ConversationsService {
       throw new NotFoundError('Conversation not found');
     }
 
-    if (conversation.userLowId !== userId && conversation.userHighId !== userId) {
+    const isMember = conversation.members.some((m) => m.userId === userId);
+    if (!isMember) {
       throw new ForbiddenError('Access denied. You are not a member of this conversation.');
     }
 
-    const isLow = conversation.userLowId === userId;
-    const partner = isLow ? conversation.userHigh : conversation.userLow;
+    const isUserA = conversation.match.userAId === userId;
+    const partner = isUserA ? conversation.match.userB : conversation.match.userA;
+    const successfulPayment = conversation.payments[0];
 
     return {
       id: conversation.id,
       matchId: conversation.matchId,
-      isUnlocked: conversation.isUnlocked,
+      status: conversation.status,
+      isUnlocked: conversation.status === 'ACTIVE',
       unlockedAt: conversation.unlockedAt,
-      unlockedByUserId: conversation.unlockRecord?.unlockedByUserId,
+      paidByUserId: successfulPayment?.userId,
       partner: {
         userId: partner.id,
-        displayName: partner.profile?.displayName ?? 'Match',
+        firstName: partner.profile?.firstName ?? 'Match',
         city: partner.profile?.city ?? '',
         bio: partner.profile?.bio ?? '',
-        photoUrl: partner.photos[0]?.originalUrl ?? null,
-        isVerified: partner.role === 'VERIFIED_USER',
+        photoUrl: partner.photos[0]?.storageKey ?? null,
+        isVerified: partner.verificationStatus === 'VERIFIED',
       },
     };
   }

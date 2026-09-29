@@ -6,8 +6,8 @@ export class BlocksController {
   async blockUser(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const blockerId = req.user!.id;
-      const { targetUserId, reason } = req.body;
-      const result = await blocksService.blockUser(blockerId, targetUserId, reason);
+      const { targetUserId } = req.body;
+      const result = await blocksService.blockUser(blockerId, targetUserId);
       sendSuccess(res, result);
     } catch (error) {
       next(error);

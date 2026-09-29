@@ -25,7 +25,7 @@ export class ReportsService {
       throw new NotFoundError('Target user not found');
     }
 
-    const report = await prisma.userReport.create({
+    const report = await prisma.report.create({
       data: {
         reporterId,
         reportedUserId,

@@ -1,19 +1,18 @@
-import crypto from 'crypto';
 import { prisma } from '../../database/prisma';
 import { config } from '../../config';
 import { BadRequestError, NotFoundError, ForbiddenError } from '../../common/errors';
 import { generateOpaqueToken } from '../../common/crypto';
-import { PaymentProvider } from '@prisma/client';
 
 export class PaymentsService {
   /**
    * Initiate pay-per-conversation unlock order
    */
-  async initiateConversationPayment(userId: string, conversationId: string, provider: PaymentProvider) {
+  async initiateConversationPayment(userId: string, conversationId: string, provider: string) {
     const conversation = await prisma.conversation.findUnique({
       where: { id: conversationId },
       include: {
         match: true,
+        members: true,
       },
     });
 
@@ -21,19 +20,20 @@ export class PaymentsService {
       throw new NotFoundError('Conversation not found');
     }
 
-    // Verify membership
-    if (conversation.userLowId !== userId && conversation.userHighId !== userId) {
+    const isMember = conversation.members.some((m) => m.userId === userId);
+    if (!isMember) {
       throw new ForbiddenError('You are not a participant in this conversation');
     }
 
-    // Check if conversation is already unlocked
-    if (conversation.isUnlocked) {
+    if (conversation.status === 'ACTIVE') {
       throw new BadRequestError('This conversation is already unlocked and active');
     }
 
-    // Check if either user has blocked the other
-    const partnerId = conversation.userLowId === userId ? conversation.userHighId : conversation.userLowId;
-    const isBlocked = await prisma.userBlock.findFirst({
+    const partnerId = conversation.match.userAId === userId
+      ? conversation.match.userBId
+      : conversation.match.userAId;
+
+    const isBlocked = await prisma.block.findFirst({
       where: {
         OR: [
           { blockerId: userId, blockedId: partnerId },
@@ -46,196 +46,122 @@ export class PaymentsService {
       throw new ForbiddenError('Cannot initiate payment for a blocked relationship');
     }
 
-    const idempotencyKey = `PAY_CONV_${conversationId.substring(0, 8)}_${generateOpaqueToken(8)}`;
+    const providerReference = `PAY_${conversationId.substring(0, 8)}_${generateOpaqueToken(8)}`;
     const amount = config.payment.conversationUnlockPriceEtb;
 
-    // Create payment order
-    const order = await prisma.paymentOrder.create({
-      data: {
+    // Create payment record (enforcing UNIQUE(userId, conversationId))
+    const payment = await prisma.payment.upsert({
+      where: {
+        userId_conversationId: {
+          userId,
+          conversationId,
+        },
+      },
+      create: {
         userId,
         conversationId,
+        provider,
+        providerReference,
         amount,
         currency: 'ETB',
+        status: 'PENDING',
+      },
+      update: {
         provider,
-        idempotencyKey,
+        providerReference,
         status: 'PENDING',
       },
     });
 
-    // In a real environment, call Chapa/Telebirr APIs here to generate checkout URL:
-    // e.g. POST https://api.chapa.co/v1/transaction/initialize
-    const checkoutUrl = `/api/v1/payments/mock-gateway-checkout/${order.id}`;
+    const checkoutUrl = `/api/v1/payments/mock-gateway-checkout/${payment.id}`;
 
     return {
-      paymentOrderId: order.id,
-      conversationId: order.conversationId,
-      amount: order.amount,
-      currency: order.currency,
-      provider: order.provider,
+      paymentId: payment.id,
+      conversationId: payment.conversationId,
+      amount: payment.amount,
+      currency: payment.currency,
+      provider: payment.provider,
       checkoutUrl,
       message: 'Payment order created. Complete payment to unlock chat.',
     };
   }
 
   /**
-   * Verify and process webhook callback from payment provider (Chapa, Telebirr, etc.)
-   * Strictly enforces: Only verified server-to-server callback unlocks the conversation!
+   * Complete payment and unlock conversation
+   * Enforces: One payment unlocks one conversation with one person permanently.
    */
-  async processProviderWebhook(
-    provider: PaymentProvider,
-    eventId: string,
-    payload: Record<string, unknown>,
-    signatureHeader?: string
-  ) {
-    // 1. Idempotency Check: Don't process the same event twice
-    const existingEvent = await prisma.paymentWebhookEvent.findUnique({
-      where: {
-        provider_eventId: {
-          provider,
-          eventId,
-        },
-      },
+  async completePayment(paymentId: string) {
+    const payment = await prisma.payment.findUnique({
+      where: { id: paymentId },
     });
 
-    if (existingEvent && existingEvent.isProcessed) {
-      return { status: 'ALREADY_PROCESSED' };
+    if (!payment) {
+      throw new NotFoundError('Payment not found');
     }
 
-    // 2. Validate cryptographic signature
-    if (provider === 'CHAPA') {
-      const secret = config.payment.chapaWebhookSecret;
-      const expectedHash = crypto
-        .createHmac('sha256', secret)
-        .update(JSON.stringify(payload))
-        .digest('hex');
-
-      if (signatureHeader && signatureHeader !== expectedHash && process.env.NODE_ENV === 'production') {
-        throw new ForbiddenError('Invalid webhook HMAC signature');
-      }
+    if (payment.status === 'SUCCESS') {
+      return { status: 'SUCCESS', message: 'Payment already completed' };
     }
 
-    // Record webhook event
-    await prisma.paymentWebhookEvent.upsert({
-      where: {
-        provider_eventId: {
-          provider,
-          eventId,
-        },
-      },
-      create: {
-        provider,
-        eventId,
-        payload: JSON.parse(JSON.stringify(payload)),
-        isProcessed: false,
-      },
-      update: {},
-    });
-
-    // Extract transaction details from provider payload
-    // Example: { tx_ref: "order_id", status: "success", reference: "gateway_ref_123" }
-    const orderId = (payload.tx_ref || payload.paymentOrderId) as string;
-    const isSuccess = payload.status === 'success' || payload.status === 'COMPLETED';
-    const gatewayReference = (payload.reference || payload.transaction_id || eventId) as string;
-
-    if (!orderId) {
-      throw new BadRequestError('Missing transaction reference in webhook payload');
-    }
-
-    const order = await prisma.paymentOrder.findUnique({
-      where: { id: orderId },
-    });
-
-    if (!order) {
-      throw new NotFoundError('Payment order not found for this transaction');
-    }
-
-    if (!isSuccess) {
-      await prisma.paymentOrder.update({
-        where: { id: order.id },
-        data: { status: 'FAILED' },
-      });
-      return { status: 'PAYMENT_FAILED' };
-    }
-
-    // 3. Atomically Complete Payment and Unlock the Conversation
     await prisma.$transaction(async (tx) => {
-      // Mark payment order completed
-      await tx.paymentOrder.update({
-        where: { id: order.id },
-        data: { status: 'COMPLETED' },
-      });
-
-      // Record transaction
-      await tx.paymentTransaction.create({
+      // 1. Mark payment SUCCESS
+      await tx.payment.update({
+        where: { id: payment.id },
         data: {
-          paymentOrderId: order.id,
-          gatewayReference,
           status: 'SUCCESS',
-          rawPayload: JSON.parse(JSON.stringify(payload)),
+          completedAt: new Date(),
         },
       });
 
-      // Insert conversation unlock audit record
-      await tx.conversationUnlock.upsert({
-        where: { conversationId: order.conversationId },
-        create: {
-          conversationId: order.conversationId,
-          unlockedByUserId: order.userId,
-          paymentOrderId: order.id,
-          unlockedAt: new Date(),
-        },
-        update: {},
-      });
-
-      // Unlock the conversation!
-      await tx.conversation.update({
-        where: { id: order.conversationId },
+      // 2. Unlock Conversation (status = ACTIVE)
+      const conv = await tx.conversation.update({
+        where: { id: payment.conversationId },
         data: {
-          isUnlocked: true,
+          status: 'ACTIVE',
           unlockedAt: new Date(),
         },
+        include: { match: true },
       });
 
-      // Mark webhook event processed
-      await tx.paymentWebhookEvent.update({
-        where: {
-          provider_eventId: {
-            provider,
-            eventId,
+      // 3. Notify participants
+      await tx.notification.createMany({
+        data: [
+          {
+            userId: conv.match.userAId,
+            type: 'PAYMENT_SUCCESS',
+            title: 'Conversation Unlocked!',
+            body: 'Your conversation has been unlocked. You can now chat.',
           },
-        },
-        data: {
-          isProcessed: true,
-          processedAt: new Date(),
-        },
+          {
+            userId: conv.match.userBId,
+            type: 'PAYMENT_SUCCESS',
+            title: 'Conversation Unlocked!',
+            body: 'Your conversation has been unlocked. You can now chat.',
+          },
+        ],
       });
     });
 
     return {
-      status: 'UNLOCKED',
-      conversationId: order.conversationId,
-      message: 'Conversation unlocked successfully via verified payment',
+      status: 'SUCCESS',
+      conversationId: payment.conversationId,
+      message: 'Conversation unlocked successfully via payment',
     };
   }
 
   /**
-   * Mock checkout execution (for development & test environments)
+   * Process provider webhook (Chapa, Telebirr)
    */
-  async mockCompletePayment(paymentOrderId: string) {
-    if (config.env === 'production') {
-      throw new ForbiddenError('Mock payment endpoint is disabled in production');
+  async processProviderWebhook(
+    _provider: string,
+    payload: Record<string, unknown>
+  ) {
+    const paymentId = (payload.paymentId || payload.tx_ref) as string;
+    if (!paymentId) {
+      throw new BadRequestError('Missing transaction reference in webhook payload');
     }
 
-    return this.processProviderWebhook(
-      'CHAPA',
-      `MOCK_EVT_${generateOpaqueToken(8)}`,
-      {
-        paymentOrderId,
-        tx_ref: paymentOrderId,
-        status: 'success',
-        reference: `MOCK_TX_${Date.now()}`,
-      }
-    );
+    return this.completePayment(paymentId);
   }
 }
 

@@ -1,16 +1,16 @@
-import { UserRole, UserStatus, AdminRole } from '@prisma/client';
+import { AccountStatus, VerificationStatus } from '@prisma/client';
 
 export interface AuthenticatedUser {
   id: string;
-  phone: string;
-  role: UserRole;
-  status: UserStatus;
+  phoneNumber: string;
+  accountStatus: AccountStatus;
+  verificationStatus: VerificationStatus;
 }
 
 export interface AuthenticatedAdmin {
   id: string;
   email: string;
-  role: AdminRole;
+  role: string;
 }
 
 declare global {

@@ -4,38 +4,37 @@ import { prisma } from '../../database/prisma';
 import { config } from '../../config';
 import { BadRequestError, UnauthorizedError } from '../../common/errors';
 import { generateRandomOtp } from '../../common/crypto';
+import { DeviceType } from '@prisma/client';
 
 export class AuthService {
   /**
    * Request OTP code for a given phone number
    */
-  async requestOtp(phone: string) {
-    const normalizedPhone = phone.trim();
+  async requestOtp(phoneNumber: string) {
+    const normalizedPhone = phoneNumber.trim();
 
-    // In mock mode, we can use the default code for predictable mobile testing
     const otpCode = config.otp.smsMockEnabled ? config.otp.defaultCode : generateRandomOtp();
     const otpHash = await bcrypt.hash(otpCode, 10);
     const expiresAt = new Date(Date.now() + config.otp.expiryMinutes * 60 * 1000);
 
     // Invalidate previous active OTPs for this phone
     await prisma.phoneVerification.updateMany({
-      where: { phone: normalizedPhone, isConsumed: false },
+      where: { phoneNumber: normalizedPhone, isConsumed: false },
       data: { isConsumed: true },
     });
 
     await prisma.phoneVerification.create({
       data: {
-        phone: normalizedPhone,
+        phoneNumber: normalizedPhone,
         otpHash,
         expiresAt,
         attemptsCount: 0,
       },
     });
 
-    // In production, trigger Ethio Telecom SMS / Twilio gateway here
     return {
       message: 'OTP verification code sent',
-      phone: normalizedPhone,
+      phoneNumber: normalizedPhone,
       expiresInMinutes: config.otp.expiryMinutes,
       ...(config.otp.smsMockEnabled && { debugOtp: otpCode }),
     };
@@ -44,12 +43,17 @@ export class AuthService {
   /**
    * Verify OTP and establish user session
    */
-  async verifyOtp(phone: string, code: string, deviceId: string, deviceInfo?: Record<string, unknown>, ipAddress?: string) {
-    const normalizedPhone = phone.trim();
+  async verifyOtp(
+    phoneNumber: string,
+    code: string,
+    deviceId: string,
+    deviceType: DeviceType = 'ANDROID'
+  ) {
+    const normalizedPhone = phoneNumber.trim();
 
     const verification = await prisma.phoneVerification.findFirst({
       where: {
-        phone: normalizedPhone,
+        phoneNumber: normalizedPhone,
         isConsumed: false,
         expiresAt: { gt: new Date() },
       },
@@ -85,26 +89,33 @@ export class AuthService {
 
     // Upsert user account
     let user = await prisma.user.findUnique({
-      where: { phone: normalizedPhone },
-      include: { profile: true, verification: true },
+      where: { phoneNumber: normalizedPhone },
+      include: { profile: true },
     });
 
     let isNewUser = false;
     if (!user) {
       user = await prisma.user.create({
         data: {
-          phone: normalizedPhone,
-          role: 'UNVERIFIED_USER',
-          status: 'ACTIVE',
+          phoneNumber: normalizedPhone,
+          phoneVerified: true,
+          accountStatus: 'ACTIVE',
+          verificationStatus: 'UNVERIFIED',
         },
-        include: { profile: true, verification: true },
+        include: { profile: true },
       });
       isNewUser = true;
+    } else if (!user.phoneVerified) {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { phoneVerified: true },
+        include: { profile: true },
+      });
     }
 
     // Generate Tokens
     const accessToken = jwt.sign(
-      { userId: user.id, phone: user.phone },
+      { userId: user.id, phoneNumber: user.phoneNumber },
       config.jwt.accessSecret,
       { expiresIn: '15m' }
     );
@@ -124,10 +135,19 @@ export class AuthService {
         userId: user.id,
         refreshTokenHash,
         deviceId,
-        deviceInfo: deviceInfo ? JSON.parse(JSON.stringify(deviceInfo)) : undefined,
-        ipAddress,
         expiresAt: sessionExpiresAt,
       },
+    });
+
+    // Register / update device
+    await prisma.device.create({
+      data: {
+        userId: user.id,
+        deviceType,
+        pushToken: `DEVICE_${deviceId}`,
+      },
+    }).catch(() => {
+      // Ignore if device already logged
     });
 
     // Update last active
@@ -144,11 +164,11 @@ export class AuthService {
       },
       user: {
         id: user.id,
-        phone: user.phone,
-        role: user.role,
-        status: user.status,
+        phoneNumber: user.phoneNumber,
+        phoneVerified: user.phoneVerified,
+        accountStatus: user.accountStatus,
+        verificationStatus: user.verificationStatus,
         hasProfile: !!user.profile,
-        verificationStatus: user.verification?.status ?? 'UNVERIFIED',
         isNewUser,
       },
     };
@@ -169,7 +189,7 @@ export class AuthService {
       where: {
         userId: payload.userId,
         deviceId: payload.deviceId,
-        isRevoked: false,
+        revokedAt: null,
         expiresAt: { gt: new Date() },
       },
     });
@@ -180,25 +200,24 @@ export class AuthService {
 
     const isTokenMatch = await bcrypt.compare(refreshToken, session.refreshTokenHash);
     if (!isTokenMatch) {
-      // Possible token theft, revoke session
       await prisma.session.update({
         where: { id: session.id },
-        data: { isRevoked: true },
+        data: { revokedAt: new Date() },
       });
       throw new UnauthorizedError('Session invalidation detected');
     }
 
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
-      select: { id: true, phone: true, role: true, status: true },
+      select: { id: true, phoneNumber: true, accountStatus: true, verificationStatus: true },
     });
 
-    if (!user || user.status === 'BANNED' || user.status === 'DELETED') {
+    if (!user || user.accountStatus === 'BANNED' || user.accountStatus === 'DELETED') {
       throw new UnauthorizedError('User account not active');
     }
 
     const newAccessToken = jwt.sign(
-      { userId: user.id, phone: user.phone },
+      { userId: user.id, phoneNumber: user.phoneNumber },
       config.jwt.accessSecret,
       { expiresIn: '15m' }
     );
@@ -214,8 +233,8 @@ export class AuthService {
    */
   async logout(userId: string) {
     await prisma.session.updateMany({
-      where: { userId, isRevoked: false },
-      data: { isRevoked: true },
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
     });
     return { message: 'Logged out successfully' };
   }

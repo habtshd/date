@@ -37,9 +37,7 @@ export class AdminController {
         targetUserId,
         actionType,
         reason,
-        reportId,
-        durationHours,
-        ipAddress
+        reportId
       );
       sendSuccess(res, result);
     } catch (error) {

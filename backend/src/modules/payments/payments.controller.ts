@@ -7,7 +7,7 @@ export class PaymentsController {
     try {
       const userId = req.user!.id;
       const { conversationId, provider } = req.body;
-      const result = await paymentsService.initiateConversationPayment(userId, conversationId, provider);
+      const result = await paymentsService.initiateConversationPayment(userId, conversationId, provider || 'CHAPA');
       sendSuccess(res, result, 'Payment initiated', 201);
     } catch (error) {
       next(error);
@@ -16,9 +16,7 @@ export class PaymentsController {
 
   async handleChapaWebhook(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const signature = req.headers['x-chapa-signature'] as string | undefined;
-      const eventId = (req.body.id || req.body.reference || `evt_${Date.now()}`) as string;
-      const result = await paymentsService.processProviderWebhook('CHAPA', eventId, req.body, signature);
+      const result = await paymentsService.processProviderWebhook('CHAPA', req.body);
       sendSuccess(res, result, 'Webhook processed');
     } catch (error) {
       next(error);
@@ -27,8 +25,8 @@ export class PaymentsController {
 
   async mockCheckout(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const orderId = req.params.orderId as string;
-      const result = await paymentsService.mockCompletePayment(orderId);
+      const paymentId = req.params.orderId as string;
+      const result = await paymentsService.completePayment(paymentId);
       sendSuccess(res, result, 'Mock payment completed');
     } catch (error) {
       next(error);

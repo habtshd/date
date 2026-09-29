@@ -5,9 +5,10 @@ import { sendSuccess } from '../../common/response';
 export class LikesController {
   async likeProfile(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const userId = req.user!.id;
-      const { targetUserId, isSuperlike } = req.body;
-      const result = await likesService.likeProfile(userId, targetUserId, isSuperlike);
+      const fromUserId = req.user!.id;
+      const { targetUserId, toUserId } = req.body;
+      const target = toUserId || targetUserId;
+      const result = await likesService.likeProfile(fromUserId, target);
       sendSuccess(res, result);
     } catch (error) {
       next(error);
@@ -17,8 +18,9 @@ export class LikesController {
   async passProfile(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
-      const { targetUserId } = req.body;
-      const result = await likesService.passProfile(userId, targetUserId);
+      const { targetUserId, toUserId } = req.body;
+      const target = toUserId || targetUserId;
+      const result = await likesService.passProfile(userId, target);
       sendSuccess(res, result);
     } catch (error) {
       next(error);
