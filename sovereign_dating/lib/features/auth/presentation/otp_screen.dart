@@ -147,7 +147,51 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 36),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryGold.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.primaryGold.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline_rounded,
+                        color: AppTheme.primaryGold, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: RichText(
+                        text: const TextSpan(
+                          text: 'Test Mode Code: ',
+                          style: TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontSize: 12.5,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: '123456',
+                              style: TextStyle(
+                                color: AppTheme.primaryGold,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.5,
+                              ),
+                            ),
+                            TextSpan(
+                              text: ' (Enter this code to proceed)',
+                              style: TextStyle(
+                                color: AppTheme.textMuted,
+                                fontSize: 11.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
               AppTextField(
                 controller: _otpController,
                 label: 'One-Time Password (OTP)',
