@@ -4,9 +4,7 @@ import '../features/splash/presentation/splash_screen.dart';
 import '../features/auth/presentation/welcome_screen.dart';
 import '../features/auth/presentation/register_screen.dart';
 import '../features/auth/presentation/otp_screen.dart';
-import '../features/profile/presentation/profile_setup_screen.dart';
-import '../features/profile/presentation/preferences_setup_screen.dart';
-import '../features/profile/presentation/photos_setup_screen.dart';
+import '../features/onboarding/presentation/onboarding_router.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/verification/presentation/verification_prompt_screen.dart';
 import '../features/verification/presentation/verification_status_screen.dart';
@@ -45,19 +43,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
 
-      // Onboarding Routes
-      GoRoute(
-        path: '/onboarding/profile',
-        builder: (context, state) => const ProfileSetupScreen(),
-      ),
-      GoRoute(
-        path: '/onboarding/preferences',
-        builder: (context, state) => const PreferencesSetupScreen(),
-      ),
-      GoRoute(
-        path: '/onboarding/photos',
-        builder: (context, state) => const PhotosSetupScreen(),
-      ),
+      // Onboarding 5-Step Flow Routes
+      ...OnboardingRouter.routes,
 
       // Verification Routes
       GoRoute(
