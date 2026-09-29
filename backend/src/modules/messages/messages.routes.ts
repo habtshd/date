@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { messagesController } from './messages.controller';
 import { authenticate } from '../../middleware/auth';
-import { requireVerified } from '../../middleware/role';
+import { requireVerified } from '../../middleware/requireVerified';
 
 export async function messagesRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.get('/:id/messages', { preHandler: [authenticate, requireVerified] }, messagesController.getMessages);

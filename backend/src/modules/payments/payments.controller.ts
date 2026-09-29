@@ -26,7 +26,7 @@ export class PaymentsController {
     const signature = request.headers['x-chapa-signature'] as string | undefined;
     const provider = (body.provider as string) || 'CHAPA';
     const result = await paymentsService.processProviderWebhook(body, signature, provider);
-    return reply.status(200).send({ success: true, ...result });
+    return reply.status(200).send(result);
   }
 }
 

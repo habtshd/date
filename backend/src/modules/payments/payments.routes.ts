@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { paymentsController } from './payments.controller';
 import { authenticate } from '../../middleware/auth';
-import { requireVerified } from '../../middleware/role';
+import { requireVerified } from '../../middleware/requireVerified';
 
 export async function paymentsRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.post('/create', { preHandler: [authenticate, requireVerified] }, paymentsController.createPayment);

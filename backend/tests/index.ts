@@ -3,6 +3,7 @@ import { runSchemaTests } from './schemas.test';
 import { runFastifyAppTests } from './fastify-app.test';
 import { runVerificationTests } from './verification.test';
 import { runDatingTests } from './dating.test';
+import { runPaymentsChatTests } from './payments-chat.test';
 
 async function main() {
   console.log('\n======================================================');
@@ -15,6 +16,7 @@ async function main() {
     await runFastifyAppTests();
     await runVerificationTests();
     await runDatingTests();
+    await runPaymentsChatTests();
 
     console.log('\n======================================================');
     console.log('🎉 ALL ARCHITECTURE & FASTIFY TESTS PASSED SUCCESSFULLY');
