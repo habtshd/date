@@ -21,11 +21,19 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
   int _currentIndex = 0;
   bool _isLoading = true;
   String? _errorMessage;
+  late final PageController _pageController;
 
   @override
   void initState() {
     super.initState();
+    _pageController = PageController();
     _fetchFeed();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchFeed() async {
@@ -53,6 +61,10 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
           _currentIndex = 0;
           _isLoading = false;
         });
+
+        if (_pageController.hasClients) {
+          _pageController.jumpToPage(0);
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -64,10 +76,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
     }
   }
 
-  Future<void> _handleLike() async {
-    if (_currentIndex >= _profiles.length) return;
-
-    final targetProfile = _profiles[_currentIndex];
+  Future<void> _handleLike(DiscoveryProfile targetProfile) async {
     final repo = ref.read(discoveryRepositoryProvider);
 
     try {
@@ -77,10 +86,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
         if (result.matched) {
           _showMatchDialog(targetProfile, result.conversationId);
         }
-
-        setState(() {
-          _currentIndex++;
-        });
+        _scrollToNext();
       }
     } catch (e) {
       if (mounted) {
@@ -94,10 +100,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
     }
   }
 
-  Future<void> _handlePass() async {
-    if (_currentIndex >= _profiles.length) return;
-
-    final targetProfile = _profiles[_currentIndex];
+  Future<void> _handlePass(DiscoveryProfile targetProfile) async {
     final repo = ref.read(discoveryRepositoryProvider);
 
     try {
@@ -105,9 +108,16 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
     } catch (_) {}
 
     if (mounted) {
-      setState(() {
-        _currentIndex++;
-      });
+      _scrollToNext();
+    }
+  }
+
+  void _scrollToNext() {
+    if (_pageController.hasClients && _currentIndex < _profiles.length) {
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 380),
+        curve: Curves.easeInOutCubic,
+      );
     }
   }
 
@@ -277,10 +287,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
         ],
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-          child: _buildBody(isVerified),
-        ),
+        child: _buildBody(isVerified),
       ),
     );
   }
@@ -297,93 +304,146 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
       );
     }
 
-    if (_currentIndex >= _profiles.length) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: AppTheme.darkCard,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppTheme.darkCardBorder),
+    if (_profiles.isEmpty) {
+      return _buildCaughtUpView();
+    }
+
+    return Stack(
+      children: [
+        PageView.builder(
+          controller: _pageController,
+          scrollDirection: Axis.vertical,
+          physics: const BouncingScrollPhysics(),
+          itemCount: _profiles.length + 1,
+          onPageChanged: (index) {
+            setState(() {
+              _currentIndex = index;
+            });
+          },
+          itemBuilder: (context, index) {
+            if (index == _profiles.length) {
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                child: _buildCaughtUpView(),
+              );
+            }
+
+            final currentProfile = _profiles[index];
+
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+              child: DiscoveryCard(
+                key: ValueKey(currentProfile.userId),
+                profile: currentProfile,
+                isUnverifiedPreview: !isVerified,
+                onLike: () => _handleLike(currentProfile),
+                onPass: () => _handlePass(currentProfile),
+                onVerifyPrompt: () => context.push('/verification/prompt'),
               ),
-              child: const Icon(
-                Icons.check_circle_outline_rounded,
-                size: 52,
-                color: AppTheme.primaryGold,
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              "You're All Caught Up!",
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                color: AppTheme.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 32),
-              child: Text(
-                'No more new candidates matching your preferences right now. Check back soon as new verified users join.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppTheme.textSecondary,
-                  height: 1.4,
+            );
+          },
+        ),
+
+        // Vertical Dots Page Indicator on Right Edge
+        if (_profiles.length > 1 && _currentIndex < _profiles.length)
+          Positioned(
+            right: 8,
+            top: 0,
+            bottom: 0,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.80),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white, width: 1.2),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x120F172A),
+                      blurRadius: 10,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(_profiles.length, (i) {
+                    final isCurrent = i == _currentIndex;
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 250),
+                      margin: const EdgeInsets.symmetric(vertical: 3),
+                      width: 5,
+                      height: isCurrent ? 18 : 5,
+                      decoration: BoxDecoration(
+                        color: isCurrent
+                            ? AppTheme.primaryGold
+                            : const Color(0xFFCBD5E1),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    );
+                  }),
                 ),
               ),
             ),
-            const SizedBox(height: 28),
-            OutlinedButton.icon(
-              onPressed: _fetchFeed,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Refresh Feed'),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildCaughtUpView() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: AppTheme.darkCard,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppTheme.darkCardBorder),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x100F172A),
+                  blurRadius: 16,
+                  offset: Offset(0, 4),
+                ),
+              ],
             ),
-          ],
-        ),
-      );
-    }
-
-    final currentProfile = _profiles[_currentIndex];
-
-    return Dismissible(
-      key: ValueKey('${currentProfile.userId}_$_currentIndex'),
-      direction: isVerified ? DismissDirection.horizontal : DismissDirection.none,
-      onDismissed: (direction) {
-        if (direction == DismissDirection.startToEnd) {
-          _handleLike();
-        } else {
-          _handlePass();
-        }
-      },
-      background: Container(
-        alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.only(left: 32),
-        decoration: BoxDecoration(
-          color: AppTheme.accentEmerald.withOpacity(0.15),
-          borderRadius: BorderRadius.circular(28),
-        ),
-        child: const Icon(Icons.favorite_rounded, color: AppTheme.accentEmerald, size: 48),
-      ),
-      secondaryBackground: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 32),
-        decoration: BoxDecoration(
-          color: AppTheme.accentCoral.withOpacity(0.15),
-          borderRadius: BorderRadius.circular(28),
-        ),
-        child: const Icon(Icons.close_rounded, color: AppTheme.accentCoral, size: 48),
-      ),
-      child: DiscoveryCard(
-        profile: currentProfile,
-        isUnverifiedPreview: !isVerified,
-        onLike: _handleLike,
-        onPass: _handlePass,
-        onVerifyPrompt: () => context.push('/verification/prompt'),
+            child: const Icon(
+              Icons.check_circle_outline_rounded,
+              size: 52,
+              color: AppTheme.primaryGold,
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            "You're All Caught Up!",
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 32),
+            child: Text(
+              'No more new candidates matching your preferences right now. Check back soon as new verified users join.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: AppTheme.textSecondary,
+                height: 1.4,
+              ),
+            ),
+          ),
+          const SizedBox(height: 28),
+          OutlinedButton.icon(
+            onPressed: _fetchFeed,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Refresh Feed'),
+          ),
+        ],
       ),
     );
   }
