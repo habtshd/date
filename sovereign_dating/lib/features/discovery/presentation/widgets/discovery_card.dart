@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../app/theme.dart';
 import '../../domain/discovery_profile.dart';
 
-class DiscoveryCard extends StatelessWidget {
+class DiscoveryCard extends StatefulWidget {
   final DiscoveryProfile profile;
   final bool isUnverifiedPreview;
   final VoidCallback? onLike;
@@ -20,7 +20,22 @@ class DiscoveryCard extends StatelessWidget {
   });
 
   @override
+  State<DiscoveryCard> createState() => _DiscoveryCardState();
+}
+
+class _DiscoveryCardState extends State<DiscoveryCard> {
+  bool _isDetailsRevealed = false;
+
+  void _toggleDetails() {
+    setState(() {
+      _isDetailsRevealed = !_isDetailsRevealed;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final profile = widget.profile;
+
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.darkCard,
@@ -63,7 +78,7 @@ class DiscoveryCard extends StatelessWidget {
           ),
 
           // Top Preview Mode Notice: Glowing Translucent Glass Pill
-          if (isUnverifiedPreview)
+          if (widget.isUnverifiedPreview)
             Positioned(
               top: 14,
               left: 14,
@@ -155,7 +170,7 @@ class DiscoveryCard extends StatelessWidget {
                           child: Material(
                             color: Colors.transparent,
                             child: InkWell(
-                              onTap: onVerifyPrompt,
+                              onTap: widget.onVerifyPrompt,
                               borderRadius: BorderRadius.circular(10),
                               child: const Padding(
                                 padding: EdgeInsets.symmetric(
@@ -192,190 +207,247 @@ class DiscoveryCard extends StatelessWidget {
                   colors: [
                     Colors.transparent,
                     Colors.white.withOpacity(0.0),
-                    Colors.white.withOpacity(0.35),
-                    Colors.white.withOpacity(0.70),
-                    Colors.white.withOpacity(0.92),
+                    Colors.white.withOpacity(_isDetailsRevealed ? 0.40 : 0.25),
+                    Colors.white.withOpacity(_isDetailsRevealed ? 0.78 : 0.65),
+                    Colors.white.withOpacity(_isDetailsRevealed ? 0.94 : 0.90),
                     Colors.white.withOpacity(0.98),
                   ],
-                  stops: const [0.0, 0.15, 0.38, 0.60, 0.82, 1.0],
+                  stops: const [0.0, 0.12, 0.35, 0.58, 0.80, 1.0],
                 ),
               ),
-              padding: const EdgeInsets.fromLTRB(20, 52, 20, 22),
+              padding: const EdgeInsets.fromLTRB(20, 36, 20, 22),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Name, Age and Glowing Emerald Verification badge
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          '${profile.firstName}, ${profile.age}',
-                          style: TextStyle(
-                            fontSize: 27,
-                            fontWeight: FontWeight.w900,
-                            color: AppTheme.textPrimary,
-                            letterSpacing: -0.5,
-                            shadows: [
-                              Shadow(
-                                color: Colors.white.withOpacity(0.9),
-                                blurRadius: 12,
-                                offset: const Offset(0, 1),
+                  // Her Name Header with '>' Button for Details Revealed
+                  InkWell(
+                    onTap: _toggleDetails,
+                    borderRadius: BorderRadius.circular(14),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              '${profile.firstName}, ${profile.age}',
+                              style: TextStyle(
+                                fontSize: 27,
+                                fontWeight: FontWeight.w900,
+                                color: AppTheme.textPrimary,
+                                letterSpacing: -0.5,
+                                shadows: [
+                                  Shadow(
+                                    color: Colors.white.withOpacity(0.9),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 1),
+                                  ),
+                                ],
                               ),
-                            ],
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      if (profile.isVerified)
-                        Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: AppTheme.accentEmerald,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppTheme.accentEmerald.withOpacity(0.6),
-                                blurRadius: 10,
-                                spreadRadius: 1,
+                          const SizedBox(width: 8),
+                          if (profile.isVerified)
+                            Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: AppTheme.accentEmerald,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppTheme.accentEmerald.withOpacity(0.6),
+                                    blurRadius: 10,
+                                    spreadRadius: 1,
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                          child: const Icon(
-                            Icons.check_rounded,
-                            size: 14,
-                            color: Colors.white,
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-
-                  // Location & Glowing Amber Intent Tag
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryGold.withOpacity(0.15),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.location_on_rounded,
-                          size: 14,
-                          color: AppTheme.primaryGold,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        profile.city,
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          color: AppTheme.textSecondary,
-                          fontWeight: FontWeight.w700,
-                          shadows: [
-                            Shadow(
-                              color: Colors.white.withOpacity(0.8),
-                              blurRadius: 8,
+                              child: const Icon(
+                                Icons.check_rounded,
+                                size: 14,
+                                color: Colors.white,
+                              ),
                             ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 3.5),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFEF3C7).withOpacity(0.85),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: const Color(0xFFF59E0B).withOpacity(0.6),
-                            width: 1,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFF59E0B).withOpacity(0.25),
-                              blurRadius: 8,
+                          const Spacer(),
+                          // '>' Chevron Button to Reveal Details
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.85),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 1.5,
+                              ),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x140F172A),
+                                  blurRadius: 10,
+                                  offset: Offset(0, 3),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                        child: Text(
-                          profile.relationshipGoal.replaceAll('_', ' '),
-                          style: const TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF92400E),
-                            letterSpacing: 0.5,
+                            child: AnimatedRotation(
+                              turns: _isDetailsRevealed ? 0.25 : 0.0,
+                              duration: const Duration(milliseconds: 250),
+                              child: const Icon(
+                                Icons.arrow_forward_ios_rounded,
+                                size: 15,
+                                color: AppTheme.textPrimary,
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
 
-                  if (profile.bio != null && profile.bio!.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      profile.bio!,
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        color: Color(0xFF1E293B),
-                        height: 1.4,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                  // Animated Reveal Section: Location, Goal, Bio, and Interests
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 280),
+                    curve: Curves.easeOutCubic,
+                    child: _isDetailsRevealed
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 6),
+                              // Location & Glowing Amber Intent Tag
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primaryGold
+                                          .withOpacity(0.15),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.location_on_rounded,
+                                      size: 14,
+                                      color: AppTheme.primaryGold,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    profile.city,
+                                    style: TextStyle(
+                                      fontSize: 13.5,
+                                      color: AppTheme.textSecondary,
+                                      fontWeight: FontWeight.w700,
+                                      shadows: [
+                                        Shadow(
+                                          color:
+                                              Colors.white.withOpacity(0.8),
+                                          blurRadius: 8,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 3.5),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFEF3C7)
+                                          .withOpacity(0.85),
+                                      borderRadius:
+                                          BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: const Color(0xFFF59E0B)
+                                            .withOpacity(0.6),
+                                        width: 1,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFFF59E0B)
+                                              .withOpacity(0.25),
+                                          blurRadius: 8,
+                                        ),
+                                      ],
+                                    ),
+                                    child: Text(
+                                      profile.relationshipGoal
+                                          .replaceAll('_', ' '),
+                                      style: const TextStyle(
+                                        fontSize: 10.5,
+                                        fontWeight: FontWeight.w900,
+                                        color: Color(0xFF92400E),
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
 
-                  // Glowing Translucent Interest Chips
-                  if (profile.interests.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: profile.interests.take(3).map((interest) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.82),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.white,
-                              width: 1.5,
-                            ),
-                            boxShadow: [
-                              const BoxShadow(
-                                color: Color(0x100F172A),
-                                blurRadius: 8,
-                                offset: Offset(0, 2),
-                              ),
-                              BoxShadow(
-                                color: Colors.white.withOpacity(0.6),
-                                blurRadius: 6,
-                                spreadRadius: -1,
-                              ),
+                              if (profile.bio != null &&
+                                  profile.bio!.isNotEmpty) ...[
+                                const SizedBox(height: 10),
+                                Text(
+                                  profile.bio!,
+                                  style: const TextStyle(
+                                    fontSize: 13.5,
+                                    color: Color(0xFF1E293B),
+                                    height: 1.4,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+
+                              // Interest Chips
+                              if (profile.interests.isNotEmpty) ...[
+                                const SizedBox(height: 12),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: profile.interests.map((interest) {
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color:
+                                            Colors.white.withOpacity(0.82),
+                                        borderRadius:
+                                            BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: Colors.white,
+                                          width: 1.5,
+                                        ),
+                                        boxShadow: [
+                                          const BoxShadow(
+                                            color: Color(0x100F172A),
+                                            blurRadius: 8,
+                                            offset: Offset(0, 2),
+                                          ),
+                                          BoxShadow(
+                                            color: Colors.white
+                                                .withOpacity(0.6),
+                                            blurRadius: 6,
+                                            spreadRadius: -1,
+                                          ),
+                                        ],
+                                      ),
+                                      child: Text(
+                                        interest,
+                                        style: const TextStyle(
+                                          fontSize: 11.5,
+                                          color: Color(0xFF0F172A),
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
                             ],
-                          ),
-                          child: Text(
-                            interest,
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              color: Color(0xFF0F172A),
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ],
+                          )
+                        : const SizedBox.shrink(),
+                  ),
 
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 16),
 
                   // Action Button: Glowing Amber Radiant Button or Pass/Like
-                  if (isUnverifiedPreview) ...[
+                  if (widget.isUnverifiedPreview) ...[
                     Container(
                       width: double.infinity,
                       height: 52,
@@ -411,7 +483,7 @@ class DiscoveryCard extends StatelessWidget {
                       child: Material(
                         color: Colors.transparent,
                         child: InkWell(
-                          onTap: onVerifyPrompt,
+                          onTap: widget.onVerifyPrompt,
                           borderRadius: BorderRadius.circular(16),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -476,7 +548,7 @@ class DiscoveryCard extends StatelessWidget {
                           child: Material(
                             color: Colors.transparent,
                             child: InkWell(
-                              onTap: onPass,
+                              onTap: widget.onPass,
                               borderRadius: BorderRadius.circular(32),
                               child: const Icon(
                                 Icons.close_rounded,
@@ -518,7 +590,7 @@ class DiscoveryCard extends StatelessWidget {
                           child: Material(
                             color: Colors.transparent,
                             child: InkWell(
-                              onTap: onLike,
+                              onTap: widget.onLike,
                               borderRadius: BorderRadius.circular(36),
                               child: const Icon(
                                 Icons.favorite_rounded,
@@ -541,7 +613,7 @@ class DiscoveryCard extends StatelessWidget {
   }
 
   Widget _buildProfileImage() {
-    final photoUrl = profile.primaryPhotoUrl;
+    final photoUrl = widget.profile.primaryPhotoUrl;
 
     if (photoUrl != null && photoUrl.startsWith('http')) {
       return Image.network(
@@ -580,7 +652,7 @@ class DiscoveryCard extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             Text(
-              profile.firstName,
+              widget.profile.firstName,
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
