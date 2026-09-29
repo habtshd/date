@@ -1,51 +1,58 @@
-import { Request, Response, NextFunction } from 'express';
-import { AppError } from '../common/errors';
+import { FastifyError, FastifyReply, FastifyRequest } from 'fastify';
+import { ZodError } from 'zod';
 import { Prisma } from '@prisma/client';
+import { logger } from '../utils/logger';
 
 export function errorHandler(
-  err: Error,
-  _req: Request,
-  res: Response,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _next: NextFunction
+  error: FastifyError,
+  _request: FastifyRequest,
+  reply: FastifyReply
 ): void {
-  // Operational errors created deliberately by the application
-  if (err instanceof AppError) {
-    res.status(err.statusCode).json({
+  // Handle Zod validation errors
+  if (error instanceof ZodError) {
+    const details = error.errors.map((e) => ({
+      field: e.path.join('.'),
+      message: e.message,
+    }));
+
+    reply.status(422).send({
       success: false,
-      message: err.message,
-      ...(err.details ? { details: err.details } : {}),
+      message: 'Input validation failed',
+      details,
     });
     return;
   }
 
-  // Prisma database unique constraint violation
-  if (err instanceof Prisma.PrismaClientKnownRequestError) {
-    if (err.code === 'P2002') {
-      const target = (err.meta?.target as string[]) || [];
-      res.status(409).json({
+  // Handle Prisma unique constraint violations
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === 'P2002') {
+      const target = (error.meta?.target as string[]) || [];
+      reply.status(409).send({
         success: false,
-        message: `Unique constraint violated on field(s): ${target.join(', ')}`,
+        message: `Resource conflict on: ${target.join(', ')}`,
       });
       return;
     }
 
-    if (err.code === 'P2025') {
-      res.status(404).json({
+    if (error.code === 'P2025') {
+      reply.status(404).send({
         success: false,
-        message: 'The requested database record was not found',
+        message: 'The requested database record does not exist',
       });
       return;
     }
   }
 
-  // Fallback for unhandled internal exceptions
-  console.error('Unhandled internal server error:', err);
+  // Fastify status code handling
+  const statusCode = error.statusCode || 500;
+  if (statusCode >= 500) {
+    logger.error('Unhandled Server Error', { error: error.message, stack: error.stack });
+  }
 
-  res.status(500).json({
+  reply.status(statusCode).send({
     success: false,
-    message: process.env.NODE_ENV === 'production'
-      ? 'An unexpected internal error occurred'
-      : err.message,
+    message: statusCode >= 500 && process.env.NODE_ENV === 'production'
+      ? 'An internal server error occurred'
+      : error.message,
   });
 }

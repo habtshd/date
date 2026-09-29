@@ -1,7 +1,6 @@
-import { prisma } from '../../database/prisma';
-import { NotFoundError, ForbiddenError } from '../../common/errors';
+import { prisma } from '../../plugins/prisma';
 import { MessageType } from '@prisma/client';
-import { chatGateway } from '../../realtime/chatGateway';
+import { wsManager } from '../../plugins/websocket';
 
 export class MessagesService {
   /**
@@ -24,18 +23,18 @@ export class MessagesService {
     });
 
     if (!conversation) {
-      throw new NotFoundError('Conversation not found');
+      throw new Error('Conversation not found');
     }
 
     // 1. Membership check
     const isMember = conversation.members.some((m) => m.userId === userId);
     if (!isMember) {
-      throw new ForbiddenError('You are not authorized to send messages in this conversation');
+      throw new Error('You are not authorized to send messages in this conversation');
     }
 
     // 2. Paywall check: Must be ACTIVE (unlocked)
     if (conversation.status !== 'ACTIVE') {
-      throw new ForbiddenError(
+      throw new Error(
         'This conversation is locked. A payment is required before messages can be sent or read.'
       );
     }
@@ -55,7 +54,7 @@ export class MessagesService {
     });
 
     if (isBlocked) {
-      throw new ForbiddenError('Messaging is disabled because of a block between users');
+      throw new Error('Messaging is disabled because of a block between users');
     }
 
     // 4. Create message
@@ -69,7 +68,7 @@ export class MessagesService {
     });
 
     // 5. Broadcast to partner via WebSocket if connected
-    chatGateway.broadcastToUser(partnerId, {
+    wsManager.broadcastToUser(partnerId, {
       type: 'NEW_MESSAGE',
       message: {
         id: message.id,
@@ -104,16 +103,16 @@ export class MessagesService {
     });
 
     if (!conversation) {
-      throw new NotFoundError('Conversation not found');
+      throw new Error('Conversation not found');
     }
 
     const isMember = conversation.members.some((m) => m.userId === userId);
     if (!isMember) {
-      throw new ForbiddenError('Access denied to conversation history');
+      throw new Error('Access denied to conversation history');
     }
 
     if (conversation.status !== 'ACTIVE') {
-      throw new ForbiddenError('Conversation is locked. Payment required.');
+      throw new Error('Conversation is locked. Payment required.');
     }
 
     const messages = await prisma.message.findMany({

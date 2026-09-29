@@ -1,21 +1,9 @@
-import { Router } from 'express';
+import { FastifyInstance } from 'fastify';
 import { matchesController } from './matches.controller';
-import { requireAuth } from '../../middleware/auth.middleware';
-import { requireVerified } from '../../middleware/verification.guard';
+import { authenticate } from '../../middleware/auth';
+import { requireVerified } from '../../middleware/role';
 
-const router = Router();
-
-router.get(
-  '/',
-  requireAuth,
-  requireVerified,
-  matchesController.getMyMatches
-);
-
-router.post(
-  '/:matchId/unmatch',
-  requireAuth,
-  matchesController.unmatch
-);
-
-export const matchesRouter = router;
+export async function matchesRoutes(fastify: FastifyInstance): Promise<void> {
+  fastify.get('/', { preHandler: [authenticate, requireVerified] }, matchesController.getMatches);
+  fastify.delete('/:id', { preHandler: [authenticate, requireVerified] }, matchesController.unmatch);
+}

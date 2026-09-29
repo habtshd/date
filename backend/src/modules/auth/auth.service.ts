@@ -1,21 +1,20 @@
-import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { prisma } from '../../database/prisma';
-import { config } from '../../config';
-import { BadRequestError, UnauthorizedError } from '../../common/errors';
-import { generateRandomOtp } from '../../common/crypto';
-import { DeviceType } from '@prisma/client';
+import { prisma } from '../../plugins/prisma';
+import { env } from '../../config/env';
+import { hashSecret, verifySecret, generateRandomOtp } from '../../utils/crypto';
+import { APP_CONSTANTS } from '../../config/constants';
+import { VerifyOtpInput } from './auth.schema';
 
 export class AuthService {
   /**
-   * Request OTP code for a given phone number
+   * Request OTP code for an E.164 phone number
    */
   async requestOtp(phoneNumber: string) {
     const normalizedPhone = phoneNumber.trim();
 
-    const otpCode = config.otp.smsMockEnabled ? config.otp.defaultCode : generateRandomOtp();
-    const otpHash = await bcrypt.hash(otpCode, 10);
-    const expiresAt = new Date(Date.now() + config.otp.expiryMinutes * 60 * 1000);
+    const otpCode = env.OTP_SMS_MOCK_ENABLED ? env.OTP_DEFAULT_CODE : generateRandomOtp();
+    const otpHash = await hashSecret(otpCode);
+    const expiresAt = new Date(Date.now() + APP_CONSTANTS.OTP_EXPIRATION_MINUTES * 60 * 1000);
 
     // Invalidate previous active OTPs for this phone
     await prisma.phoneVerification.updateMany({
@@ -35,21 +34,16 @@ export class AuthService {
     return {
       message: 'OTP verification code sent',
       phoneNumber: normalizedPhone,
-      expiresInMinutes: config.otp.expiryMinutes,
-      ...(config.otp.smsMockEnabled && { debugOtp: otpCode }),
+      expiresInMinutes: APP_CONSTANTS.OTP_EXPIRATION_MINUTES,
+      ...(env.OTP_SMS_MOCK_ENABLED && { debugOtp: otpCode }),
     };
   }
 
   /**
-   * Verify OTP and establish user session
+   * Verify OTP and establish user session with Argon2id-hashed refresh token
    */
-  async verifyOtp(
-    phoneNumber: string,
-    code: string,
-    deviceId: string,
-    deviceType: DeviceType = 'ANDROID'
-  ) {
-    const normalizedPhone = phoneNumber.trim();
+  async verifyOtp(input: VerifyOtpInput) {
+    const normalizedPhone = input.phoneNumber.trim();
 
     const verification = await prisma.phoneVerification.findFirst({
       where: {
@@ -61,33 +55,33 @@ export class AuthService {
     });
 
     if (!verification) {
-      throw new BadRequestError('Verification code expired or not found. Please request a new code.');
+      throw new Error('Verification code expired or not found. Please request a new code.');
     }
 
-    if (verification.attemptsCount >= config.otp.maxAttempts) {
+    if (verification.attemptsCount >= APP_CONSTANTS.MAX_OTP_ATTEMPTS) {
       await prisma.phoneVerification.update({
         where: { id: verification.id },
         data: { isConsumed: true },
       });
-      throw new BadRequestError('Maximum verification attempts exceeded. Please request a new code.');
+      throw new Error('Maximum verification attempts exceeded. Please request a new code.');
     }
 
-    const isMatch = await bcrypt.compare(code, verification.otpHash);
+    const isMatch = await verifySecret(verification.otpHash, input.code);
     if (!isMatch) {
       await prisma.phoneVerification.update({
         where: { id: verification.id },
         data: { attemptsCount: { increment: 1 } },
       });
-      throw new BadRequestError('Invalid verification code');
+      throw new Error('Invalid verification code');
     }
 
-    // Mark verification consumed
+    // Invalidate consumed OTP
     await prisma.phoneVerification.update({
       where: { id: verification.id },
       data: { isConsumed: true },
     });
 
-    // Upsert user account
+    // Find or create user
     let user = await prisma.user.findUnique({
       where: { phoneNumber: normalizedPhone },
       include: { profile: true },
@@ -113,20 +107,21 @@ export class AuthService {
       });
     }
 
-    // Generate Tokens
+    // Generate Access & Refresh Tokens
     const accessToken = jwt.sign(
       { userId: user.id, phoneNumber: user.phoneNumber },
-      config.jwt.accessSecret,
+      env.JWT_ACCESS_SECRET,
       { expiresIn: '15m' }
     );
 
     const refreshToken = jwt.sign(
-      { userId: user.id, deviceId },
-      config.jwt.refreshSecret,
+      { userId: user.id, deviceId: input.deviceId },
+      env.JWT_REFRESH_SECRET,
       { expiresIn: '30d' }
     );
 
-    const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
+    // Hash refresh token using Argon2id
+    const refreshTokenHash = await hashSecret(refreshToken);
     const sessionExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
     // Record session
@@ -134,21 +129,19 @@ export class AuthService {
       data: {
         userId: user.id,
         refreshTokenHash,
-        deviceId,
+        deviceId: input.deviceId,
         expiresAt: sessionExpiresAt,
       },
     });
 
-    // Register / update device
+    // Register device
     await prisma.device.create({
       data: {
         userId: user.id,
-        deviceType,
-        pushToken: `DEVICE_${deviceId}`,
+        deviceType: input.deviceType,
+        pushToken: `PUSH_${input.deviceId}`,
       },
-    }).catch(() => {
-      // Ignore if device already logged
-    });
+    }).catch(() => {});
 
     // Update last active
     await prisma.user.update({
@@ -180,9 +173,9 @@ export class AuthService {
   async refreshToken(refreshToken: string) {
     let payload: { userId: string; deviceId: string };
     try {
-      payload = jwt.verify(refreshToken, config.jwt.refreshSecret) as { userId: string; deviceId: string };
+      payload = jwt.verify(refreshToken, env.JWT_REFRESH_SECRET) as { userId: string; deviceId: string };
     } catch {
-      throw new UnauthorizedError('Invalid or expired refresh token');
+      throw new Error('Invalid or expired refresh token');
     }
 
     const session = await prisma.session.findFirst({
@@ -195,16 +188,16 @@ export class AuthService {
     });
 
     if (!session) {
-      throw new UnauthorizedError('Session expired or revoked');
+      throw new Error('Session expired or revoked');
     }
 
-    const isTokenMatch = await bcrypt.compare(refreshToken, session.refreshTokenHash);
-    if (!isTokenMatch) {
+    const isMatch = await verifySecret(session.refreshTokenHash, refreshToken);
+    if (!isMatch) {
       await prisma.session.update({
         where: { id: session.id },
         data: { revokedAt: new Date() },
       });
-      throw new UnauthorizedError('Session invalidation detected');
+      throw new Error('Session invalidation detected');
     }
 
     const user = await prisma.user.findUnique({
@@ -213,12 +206,12 @@ export class AuthService {
     });
 
     if (!user || user.accountStatus === 'BANNED' || user.accountStatus === 'DELETED') {
-      throw new UnauthorizedError('User account not active');
+      throw new Error('User account is restricted');
     }
 
     const newAccessToken = jwt.sign(
       { userId: user.id, phoneNumber: user.phoneNumber },
-      config.jwt.accessSecret,
+      env.JWT_ACCESS_SECRET,
       { expiresIn: '15m' }
     );
 
@@ -229,7 +222,7 @@ export class AuthService {
   }
 
   /**
-   * Terminate active user session
+   * Logout user and revoke active sessions
    */
   async logout(userId: string) {
     await prisma.session.updateMany({

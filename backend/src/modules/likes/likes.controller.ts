@@ -1,30 +1,20 @@
-import { Request, Response, NextFunction } from 'express';
+import { FastifyRequest, FastifyReply } from 'fastify';
 import { likesService } from './likes.service';
-import { sendSuccess } from '../../common/response';
+import { LikeParamSchema } from './likes.schema';
 
 export class LikesController {
-  async likeProfile(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const fromUserId = req.user!.id;
-      const { targetUserId, toUserId } = req.body;
-      const target = toUserId || targetUserId;
-      const result = await likesService.likeProfile(fromUserId, target);
-      sendSuccess(res, result);
-    } catch (error) {
-      next(error);
-    }
+  async likeUser(request: FastifyRequest, reply: FastifyReply) {
+    const fromUserId = request.user!.userId;
+    const params = LikeParamSchema.parse(request.params);
+    const result = await likesService.likeProfile(fromUserId, params.userId);
+    return reply.status(200).send({ success: true, ...result });
   }
 
-  async passProfile(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = req.user!.id;
-      const { targetUserId, toUserId } = req.body;
-      const target = toUserId || targetUserId;
-      const result = await likesService.passProfile(userId, target);
-      sendSuccess(res, result);
-    } catch (error) {
-      next(error);
-    }
+  async unlikeUser(request: FastifyRequest, reply: FastifyReply) {
+    const fromUserId = request.user!.userId;
+    const params = LikeParamSchema.parse(request.params);
+    const result = await likesService.unlikeProfile(fromUserId, params.userId);
+    return reply.status(200).send(result);
   }
 }
 

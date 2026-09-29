@@ -1,15 +1,7 @@
-import { Router } from 'express';
+import { FastifyInstance } from 'fastify';
 import { discoveryController } from './discovery.controller';
-import { requireAuth } from '../../middleware/auth.middleware';
+import { authenticate } from '../../middleware/auth';
 
-const router = Router();
-
-// Notice: unverified users CAN call this endpoint, but the service automatically
-// detects unverified standing and serves only server-blurred teaser cards!
-router.get(
-  '/feed',
-  requireAuth,
-  discoveryController.getFeed
-);
-
-export const discoveryRouter = router;
+export async function discoveryRoutes(fastify: FastifyInstance): Promise<void> {
+  fastify.get('/', { preHandler: [authenticate] }, discoveryController.getDiscoveryFeed);
+}

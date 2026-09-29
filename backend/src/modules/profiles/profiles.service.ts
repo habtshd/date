@@ -1,6 +1,6 @@
-import { prisma } from '../../database/prisma';
-import { BadRequestError, NotFoundError } from '../../common/errors';
+import { prisma } from '../../plugins/prisma';
 import { Gender, RelationshipGoal } from '@prisma/client';
+import { storageService } from '../../integrations/storage';
 
 export class ProfilesService {
   /**
@@ -24,7 +24,7 @@ export class ProfilesService {
     const calculatedAge = Math.abs(ageDate.getUTCFullYear() - 1970);
 
     if (calculatedAge < 18) {
-      throw new BadRequestError('Users must be at least 18 years of age to use the dating service');
+      throw new Error('Users must be at least 18 years of age to use the dating service');
     }
 
     const { interestIds, ...profileData } = data;
@@ -100,12 +100,24 @@ export class ProfilesService {
   }
 
   /**
+   * Request presigned URL to upload a photo
+   */
+  async getPhotoUploadUrl(userId: string, mimeType: string) {
+    const count = await prisma.profilePhoto.count({ where: { userId } });
+    if (count >= 6) {
+      throw new Error('Maximum of 6 photos permitted per profile');
+    }
+
+    return storageService.getPresignedUploadUrl(userId, mimeType);
+  }
+
+  /**
    * Add photo to profile
    */
   async addPhoto(userId: string, data: { storageKey: string; blurredStorageKey?: string; isPrimary: boolean }) {
     const existingCount = await prisma.profilePhoto.count({ where: { userId } });
     if (existingCount >= 6) {
-      throw new BadRequestError('Maximum of 6 photos permitted per profile');
+      throw new Error('Maximum of 6 photos permitted per profile');
     }
 
     if (data.isPrimary || existingCount === 0) {
@@ -148,7 +160,7 @@ export class ProfilesService {
     });
 
     if (!photo) {
-      throw new NotFoundError('Photo not found');
+      throw new Error('Photo not found');
     }
 
     await prisma.profilePhoto.delete({ where: { id: photoId } });
@@ -189,7 +201,7 @@ export class ProfilesService {
     }
   ) {
     if (data.minAge > data.maxAge) {
-      throw new BadRequestError('Minimum age cannot be greater than maximum age');
+      throw new Error('Minimum age cannot be greater than maximum age');
     }
 
     const preference = await prisma.userPreference.upsert({

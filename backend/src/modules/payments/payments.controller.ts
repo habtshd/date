@@ -1,36 +1,32 @@
-import { Request, Response, NextFunction } from 'express';
+import { FastifyRequest, FastifyReply } from 'fastify';
 import { paymentsService } from './payments.service';
-import { sendSuccess } from '../../common/response';
+import { CreatePaymentSchema, PaymentIdParamSchema, PaymentWebhookSchema } from './payments.schema';
 
 export class PaymentsController {
-  async initiatePayment(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = req.user!.id;
-      const { conversationId, provider } = req.body;
-      const result = await paymentsService.initiateConversationPayment(userId, conversationId, provider || 'CHAPA');
-      sendSuccess(res, result, 'Payment initiated', 201);
-    } catch (error) {
-      next(error);
-    }
+  async createPayment(request: FastifyRequest, reply: FastifyReply) {
+    const userId = request.user!.userId;
+    const body = CreatePaymentSchema.parse(request.body);
+    const result = await paymentsService.initiateConversationPayment(
+      userId,
+      body.conversationId,
+      body.provider
+    );
+    return reply.status(201).send({ success: true, ...result });
   }
 
-  async handleChapaWebhook(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const result = await paymentsService.processProviderWebhook('CHAPA', req.body);
-      sendSuccess(res, result, 'Webhook processed');
-    } catch (error) {
-      next(error);
-    }
+  async getPayment(request: FastifyRequest, reply: FastifyReply) {
+    const userId = request.user!.userId;
+    const params = PaymentIdParamSchema.parse(request.params);
+    const payment = await paymentsService.getPaymentById(userId, params.id);
+    return reply.status(200).send({ success: true, payment });
   }
 
-  async mockCheckout(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const paymentId = req.params.orderId as string;
-      const result = await paymentsService.completePayment(paymentId);
-      sendSuccess(res, result, 'Mock payment completed');
-    } catch (error) {
-      next(error);
-    }
+  async handleWebhook(request: FastifyRequest, reply: FastifyReply) {
+    const body = PaymentWebhookSchema.parse(request.body);
+    const signature = request.headers['x-chapa-signature'] as string | undefined;
+    const provider = (body.provider as string) || 'CHAPA';
+    const result = await paymentsService.processProviderWebhook(body, signature, provider);
+    return reply.status(200).send({ success: true, ...result });
   }
 }
 

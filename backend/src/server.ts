@@ -1,41 +1,42 @@
-import http from 'http';
-import { createApp } from './app';
-import { config } from './config';
-import { chatGateway } from './realtime/chatGateway';
-import { prisma } from './database/prisma';
+import { buildApp } from './app';
+import { env } from './config/env';
+import { logger } from './utils/logger';
+import { prisma } from './plugins/prisma';
+import { redis } from './plugins/redis';
 
 async function bootstrap() {
-  const app = createApp();
-  const server = http.createServer(app);
+  const app = await buildApp();
 
-  // Initialize Realtime WebSocket Gateway
-  chatGateway.initialize(server);
+  try {
+    await app.listen({ port: env.PORT, host: '0.0.0.0' });
 
-  server.listen(config.port, () => {
     console.log(`====================================================`);
-    console.log(`🇪🇹 Ethiopian Dating API Server is running`);
-    console.log(`🌐 Environment: ${config.env}`);
-    console.log(`🚀 HTTP Server: http://localhost:${config.port}`);
-    console.log(`⚡ WebSocket:  ws://localhost:${config.port}/ws`);
-    console.log(`📖 API Base:    http://localhost:${config.port}${config.apiPrefix}`);
+    console.log(`🇪🇹 Ethiopian Dating Platform Backend (Fastify)`);
+    console.log(`🌐 Environment: ${env.NODE_ENV}`);
+    console.log(`🚀 API Base:    http://localhost:${env.PORT}/api/v1`);
+    console.log(`⚡ WebSocket:   ws://localhost:${env.PORT}/api/v1/ws`);
+    console.log(`🩺 Health:      http://localhost:${env.PORT}/health`);
     console.log(`====================================================`);
-  });
+  } catch (err: any) {
+    logger.error('Failed to start server:', { error: err.message, stack: err.stack });
+    process.exit(1);
+  }
 
   // Graceful shutdown handling
   const shutdown = async (signal: string) => {
-    console.log(`\nReceived ${signal}. Shutting down gracefully...`);
-    server.close(async () => {
+    logger.info(`Received ${signal}. Shutting down gracefully...`);
+    try {
+      await app.close();
       await prisma.$disconnect();
-      console.log('Database disconnected. Process exiting.');
-      process.exit(0);
-    });
+      await redis.quit();
+    } catch {
+      // Ignore disconnect errors during process termination
+    }
+    process.exit(0);
   };
 
   process.on('SIGINT', () => shutdown('SIGINT'));
   process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
 
-bootstrap().catch((err) => {
-  console.error('Failed to start server:', err);
-  process.exit(1);
-});
+bootstrap();

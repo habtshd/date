@@ -1,30 +1,10 @@
-import { Router } from 'express';
+import { FastifyInstance } from 'fastify';
 import { paymentsController } from './payments.controller';
-import { requireAuth } from '../../middleware/auth.middleware';
-import { requireVerified } from '../../middleware/verification.guard';
-import { validate } from '../../middleware/validate';
-import { CreateConversationPaymentSchema } from './payments.schemas';
+import { authenticate } from '../../middleware/auth';
+import { requireVerified } from '../../middleware/role';
 
-const router = Router();
-
-router.post(
-  '/initiate',
-  requireAuth,
-  requireVerified,
-  validate(CreateConversationPaymentSchema),
-  paymentsController.initiatePayment
-);
-
-// Webhook listener called directly by Chapa servers
-router.post(
-  '/webhooks/chapa',
-  paymentsController.handleChapaWebhook
-);
-
-// Development mock payment completion endpoint
-router.post(
-  '/mock-gateway-checkout/:orderId',
-  paymentsController.mockCheckout
-);
-
-export const paymentsRouter = router;
+export async function paymentsRoutes(fastify: FastifyInstance): Promise<void> {
+  fastify.post('/create', { preHandler: [authenticate, requireVerified] }, paymentsController.createPayment);
+  fastify.get('/:id', { preHandler: [authenticate, requireVerified] }, paymentsController.getPayment);
+  fastify.post('/webhook', paymentsController.handleWebhook);
+}

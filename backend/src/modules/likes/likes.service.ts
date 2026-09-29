@@ -1,6 +1,5 @@
-import { prisma } from '../../database/prisma';
-import { BadRequestError, NotFoundError, ForbiddenError } from '../../common/errors';
-import { getCanonicalPair } from '../../common/crypto';
+import { prisma } from '../../plugins/prisma';
+import { getCanonicalPair } from '../../utils/crypto';
 
 export class LikesService {
   /**
@@ -9,7 +8,7 @@ export class LikesService {
    */
   async likeProfile(fromUserId: string, toUserId: string) {
     if (fromUserId === toUserId) {
-      throw new BadRequestError('You cannot like your own profile');
+      throw new Error('You cannot like your own profile');
     }
 
     const targetUser = await prisma.user.findUnique({
@@ -18,10 +17,10 @@ export class LikesService {
     });
 
     if (!targetUser || targetUser.accountStatus !== 'ACTIVE' || !targetUser.profile) {
-      throw new NotFoundError('Target profile is not available');
+      throw new Error('Target profile is not available');
     }
 
-    // Check if target user has blocked liker
+    // Check if target user has blocked liker or liker blocked target
     const isBlocked = await prisma.block.findFirst({
       where: {
         OR: [
@@ -32,7 +31,7 @@ export class LikesService {
     });
 
     if (isBlocked) {
-      throw new ForbiddenError('Unable to interact with this profile');
+      throw new Error('Unable to interact with this profile');
     }
 
     // Record like
@@ -164,11 +163,13 @@ export class LikesService {
   }
 
   /**
-   * Pass (skip) a profile in discovery
+   * Remove a like (unlike)
    */
-  async passProfile(_userId: string, _targetUserId: string) {
-    // In Phase 2 spec, passing is simply not creating a like; returns confirmation
-    return { message: 'Profile passed' };
+  async unlikeProfile(fromUserId: string, toUserId: string) {
+    await prisma.like.deleteMany({
+      where: { fromUserId, toUserId },
+    });
+    return { success: true, message: 'Like removed' };
   }
 }
 

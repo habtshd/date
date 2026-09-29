@@ -1,52 +1,56 @@
-import { prisma } from '../../database/prisma';
-import { BadRequestError, NotFoundError } from '../../common/errors';
-import { generateOpaqueToken } from '../../common/crypto';
+import { prisma } from '../../plugins/prisma';
+import { getVerificationProvider } from '../../integrations/verification';
+import { logger } from '../../utils/logger';
 
 export class VerificationService {
   /**
-   * Submit identity verification request
+   * Start identity verification via configured provider abstraction
    */
-  async submitVerification(userId: string, provider = 'FAYDA') {
+  async startVerification(userId: string, providerName = 'FAYDA') {
     const user = await prisma.user.findUnique({
       where: { id: userId },
     });
 
     if (!user) {
-      throw new NotFoundError('User not found');
+      throw new Error('User not found');
     }
 
     if (user.verificationStatus === 'VERIFIED') {
-      throw new BadRequestError('User is already identity verified');
+      throw new Error('User is already identity verified');
     }
 
-    const providerReference = `VERIF_${generateOpaqueToken(16).toUpperCase()}`;
+    const provider = getVerificationProvider(providerName);
+    const initResult = await provider.initiate(userId);
 
-    // Record verification request (deliberately minimal personal data)
+    // Save pending record
     const record = await prisma.verificationRecord.create({
       data: {
         userId,
-        provider,
+        provider: provider.name,
         status: 'PENDING',
-        providerReference,
+        providerReference: initResult.providerReference,
       },
     });
 
-    // Update user status
+    // Mark user status as PENDING
     await prisma.user.update({
       where: { id: userId },
       data: { verificationStatus: 'PENDING' },
     });
 
+    logger.info('Identity verification initiated', { userId, provider: provider.name, reference: initResult.providerReference });
+
     return {
       recordId: record.id,
-      providerReference: record.providerReference,
-      status: record.status,
-      message: 'Verification request submitted. Status is pending review.',
+      providerReference: initResult.providerReference,
+      verificationUrl: initResult.verificationUrl,
+      status: 'PENDING',
+      message: 'Verification flow started with provider. Awaiting completion.',
     };
   }
 
   /**
-   * Get current verification standing
+   * Check verification standing
    */
   async getStatus(userId: string) {
     const user = await prisma.user.findUnique({
@@ -62,7 +66,7 @@ export class VerificationService {
     });
 
     if (!user) {
-      throw new NotFoundError('User not found');
+      throw new Error('User not found');
     }
 
     const latest = user.verificationRecords[0];
@@ -77,37 +81,53 @@ export class VerificationService {
   }
 
   /**
-   * Webhook callback from verification provider (Fayda / KYC)
+   * Handle signed/verified callback from verification provider
    */
-  async handleWebhook(providerReference: string, status: 'VERIFIED' | 'FAILED') {
+  async handleWebhook(payload: Record<string, unknown>) {
+    const provider = getVerificationProvider();
+    const verification = await provider.verifyCallback(payload);
+
     const record = await prisma.verificationRecord.findFirst({
-      where: { providerReference },
+      where: { providerReference: verification.providerReference },
     });
 
     if (!record) {
-      throw new NotFoundError('Verification reference not found');
+      throw new Error(`Verification reference ${verification.providerReference} not found`);
     }
+
+    const newStatus = verification.status === 'VERIFIED' ? 'VERIFIED' : 'FAILED';
 
     await prisma.$transaction([
       prisma.verificationRecord.update({
         where: { id: record.id },
         data: {
-          status,
-          verifiedAt: status === 'VERIFIED' ? new Date() : null,
+          status: newStatus,
+          verifiedAt: newStatus === 'VERIFIED' ? new Date() : null,
         },
       }),
       prisma.user.update({
         where: { id: record.userId },
         data: {
-          verificationStatus: status,
+          verificationStatus: newStatus,
+        },
+      }),
+      prisma.auditLog.create({
+        data: {
+          actorUserId: record.userId,
+          action: `VERIFICATION_${newStatus}`,
+          targetType: 'VERIFICATION_RECORD',
+          targetId: record.id,
+          metadata: { provider: record.provider, reference: record.providerReference },
         },
       }),
     ]);
 
+    logger.info('Verification webhook processed', { reference: verification.providerReference, status: newStatus });
+
     return {
       success: true,
-      providerReference,
-      status,
+      providerReference: verification.providerReference,
+      status: newStatus,
     };
   }
 }

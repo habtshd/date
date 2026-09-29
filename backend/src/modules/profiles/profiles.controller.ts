@@ -1,66 +1,61 @@
-import { Request, Response, NextFunction } from 'express';
+import { FastifyRequest, FastifyReply } from 'fastify';
 import { profilesService } from './profiles.service';
-import { sendSuccess } from '../../common/response';
+import { UpsertProfileSchema, AddPhotoSchema, UpdatePreferencesSchema } from './profile.schema';
+import { z } from 'zod';
+
+const PhotoIdParamSchema = z.object({
+  photoId: z.string().uuid(),
+});
+
+const PresignUploadSchema = z.object({
+  mimeType: z.string().default('image/jpeg'),
+});
 
 export class ProfilesController {
-  async upsertProfile(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = req.user!.id;
-      const result = await profilesService.upsertProfile(userId, req.body);
-      sendSuccess(res, result, 'Profile updated successfully');
-    } catch (error) {
-      next(error);
-    }
+  async getMyProfile(request: FastifyRequest, reply: FastifyReply) {
+    const userId = request.user!.userId;
+    const profile = await profilesService.getMyProfile(userId);
+    return reply.status(200).send({ success: true, profile });
   }
 
-  async getMyProfile(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = req.user!.id;
-      const result = await profilesService.getMyProfile(userId);
-      sendSuccess(res, result);
-    } catch (error) {
-      next(error);
-    }
+  async upsertProfile(request: FastifyRequest, reply: FastifyReply) {
+    const userId = request.user!.userId;
+    const body = UpsertProfileSchema.parse(request.body);
+    const profile = await profilesService.upsertProfile(userId, body);
+    return reply.status(200).send({ success: true, message: 'Profile updated successfully', profile });
   }
 
-  async addPhoto(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = req.user!.id;
-      const result = await profilesService.addPhoto(userId, req.body);
-      sendSuccess(res, result, 'Photo added successfully', 201);
-    } catch (error) {
-      next(error);
-    }
+  async presignPhoto(request: FastifyRequest, reply: FastifyReply) {
+    const userId = request.user!.userId;
+    const body = PresignUploadSchema.parse(request.body || {});
+    const presigned = await profilesService.getPhotoUploadUrl(userId, body.mimeType);
+    return reply.status(200).send({ success: true, ...presigned });
   }
 
-  async deletePhoto(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = req.user!.id;
-      const photoId = req.params.photoId as string;
-      const result = await profilesService.deletePhoto(userId, photoId);
-      sendSuccess(res, result);
-    } catch (error) {
-      next(error);
-    }
+  async addPhoto(request: FastifyRequest, reply: FastifyReply) {
+    const userId = request.user!.userId;
+    const body = AddPhotoSchema.parse(request.body);
+    const photo = await profilesService.addPhoto(userId, body);
+    return reply.status(201).send({ success: true, message: 'Photo added successfully', photo });
   }
 
-  async updatePreferences(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = req.user!.id;
-      const result = await profilesService.updatePreferences(userId, req.body);
-      sendSuccess(res, result, 'Preferences updated successfully');
-    } catch (error) {
-      next(error);
-    }
+  async deletePhoto(request: FastifyRequest, reply: FastifyReply) {
+    const userId = request.user!.userId;
+    const params = PhotoIdParamSchema.parse(request.params);
+    const result = await profilesService.deletePhoto(userId, params.photoId);
+    return reply.status(200).send({ success: true, ...result });
   }
 
-  async getInterests(_req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const result = await profilesService.getAvailableInterests();
-      sendSuccess(res, result);
-    } catch (error) {
-      next(error);
-    }
+  async updatePreferences(request: FastifyRequest, reply: FastifyReply) {
+    const userId = request.user!.userId;
+    const body = UpdatePreferencesSchema.parse(request.body);
+    const preferences = await profilesService.updatePreferences(userId, body);
+    return reply.status(200).send({ success: true, message: 'Preferences updated successfully', preferences });
+  }
+
+  async getInterests(_request: FastifyRequest, reply: FastifyReply) {
+    const interests = await profilesService.getAvailableInterests();
+    return reply.status(200).send({ success: true, interests });
   }
 }
 

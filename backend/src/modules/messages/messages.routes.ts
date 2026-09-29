@@ -1,25 +1,9 @@
-import { Router } from 'express';
+import { FastifyInstance } from 'fastify';
 import { messagesController } from './messages.controller';
-import { requireAuth } from '../../middleware/auth.middleware';
-import { requireVerified } from '../../middleware/verification.guard';
-import { validate } from '../../middleware/validate';
-import { SendMessageSchema } from './messages.schemas';
+import { authenticate } from '../../middleware/auth';
+import { requireVerified } from '../../middleware/role';
 
-const router = Router();
-
-router.post(
-  '/:conversationId',
-  requireAuth,
-  requireVerified,
-  validate(SendMessageSchema),
-  messagesController.sendMessage
-);
-
-router.get(
-  '/:conversationId',
-  requireAuth,
-  requireVerified,
-  messagesController.getMessages
-);
-
-export const messagesRouter = router;
+export async function messagesRoutes(fastify: FastifyInstance): Promise<void> {
+  fastify.get('/:id/messages', { preHandler: [authenticate, requireVerified] }, messagesController.getMessages);
+  fastify.post('/:id/messages', { preHandler: [authenticate, requireVerified] }, messagesController.sendMessage);
+}

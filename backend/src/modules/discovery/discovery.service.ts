@@ -1,4 +1,4 @@
-import { prisma } from '../../database/prisma';
+import { prisma } from '../../plugins/prisma';
 import { VerificationStatus } from '@prisma/client';
 
 export interface DiscoveryCard {
@@ -129,7 +129,7 @@ export class DiscoveryService {
             : photo.storageKey,
           isPrimary: photo.isPrimary,
         })),
-        interests: isTeaserMode ? [] : p.user.interests.map((ui) => ui.interest),
+        interests: isTeaserMode ? [] : p.user.interests.map((ui) => ({ id: ui.interest.id, name: ui.interest.name })),
         isVerified: p.user.verificationStatus === 'VERIFIED',
       };
     });

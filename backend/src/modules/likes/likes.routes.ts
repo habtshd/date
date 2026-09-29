@@ -1,25 +1,10 @@
-import { Router } from 'express';
+import { FastifyInstance } from 'fastify';
 import { likesController } from './likes.controller';
-import { requireAuth } from '../../middleware/auth.middleware';
-import { requireVerified } from '../../middleware/verification.guard';
-import { validate } from '../../middleware/validate';
-import { LikeProfileSchema, PassProfileSchema } from './likes.schemas';
+import { authenticate } from '../../middleware/auth';
+import { requireVerified } from '../../middleware/role';
 
-const router = Router();
-
-router.post(
-  '/',
-  requireAuth,
-  requireVerified,
-  validate(LikeProfileSchema),
-  likesController.likeProfile
-);
-
-router.post(
-  '/pass',
-  requireAuth,
-  validate(PassProfileSchema),
-  likesController.passProfile
-);
-
-export const likesRouter = router;
+export async function likesRoutes(fastify: FastifyInstance): Promise<void> {
+  // Like requires authentication and identity verification
+  fastify.post('/:userId', { preHandler: [authenticate, requireVerified] }, likesController.likeUser);
+  fastify.delete('/:userId', { preHandler: [authenticate, requireVerified] }, likesController.unlikeUser);
+}

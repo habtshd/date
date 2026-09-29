@@ -1,7 +1,6 @@
 import jwt from 'jsonwebtoken';
-import { prisma } from '../../database/prisma';
-import { config } from '../../config';
-import { UnauthorizedError, NotFoundError } from '../../common/errors';
+import { prisma } from '../../plugins/prisma';
+import { env } from '../../config/env';
 import { ReportStatus } from '@prisma/client';
 
 export class AdminService {
@@ -9,9 +8,8 @@ export class AdminService {
    * Admin authentication (admin accounts use designated admin user ID)
    */
   async login(email: string, passwordPlain: string) {
-    // In production, compare with admin credentials or superadmin account
     if (email !== 'admin@habeshadate.et' || passwordPlain !== 'Admin@Pass123!') {
-      throw new UnauthorizedError('Invalid credentials');
+      throw new Error('Invalid credentials');
     }
 
     let adminUser = await prisma.user.findFirst({
@@ -30,8 +28,8 @@ export class AdminService {
     }
 
     const token = jwt.sign(
-      { adminId: adminUser.id, email, role: 'SUPER_ADMIN' },
-      config.jwt.accessSecret,
+      { userId: adminUser.id, adminId: adminUser.id, email, role: 'SUPER_ADMIN' },
+      env.JWT_ACCESS_SECRET,
       { expiresIn: '8h' }
     );
 
@@ -41,6 +39,44 @@ export class AdminService {
         id: adminUser.id,
         email,
         role: 'SUPER_ADMIN',
+      },
+    };
+  }
+
+  /**
+   * List users with pagination for administrative audit
+   */
+  async getUsers(page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        select: {
+          id: true,
+          phoneNumber: true,
+          phoneVerified: true,
+          accountStatus: true,
+          verificationStatus: true,
+          createdAt: true,
+          lastActiveAt: true,
+          profile: {
+            select: { firstName: true, city: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.user.count(),
+    ]);
+
+    return {
+      users,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
       },
     };
   }
@@ -106,7 +142,7 @@ export class AdminService {
     });
 
     if (!user) {
-      throw new NotFoundError('Target user not found');
+      throw new Error('Target user not found');
     }
 
     return prisma.$transaction(async (tx) => {
@@ -165,6 +201,68 @@ export class AdminService {
         message: `Moderation action ${actionType} applied successfully`,
       };
     });
+  }
+
+  /**
+   * Verification queue review for admin
+   */
+  async getVerificationQueue(page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+
+    const [records, total] = await Promise.all([
+      prisma.verificationRecord.findMany({
+        include: {
+          user: {
+            select: {
+              id: true,
+              phoneNumber: true,
+              verificationStatus: true,
+              profile: { select: { firstName: true, city: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.verificationRecord.count(),
+    ]);
+
+    return {
+      records,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * Get payments ledger
+   */
+  async getPayments(page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+
+    const [payments, total] = await Promise.all([
+      prisma.payment.findMany({
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.payment.count(),
+    ]);
+
+    return {
+      payments,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   /**

@@ -1,16 +1,8 @@
-import { Router } from 'express';
+import { FastifyInstance } from 'fastify';
 import { reportsController } from './reports.controller';
-import { requireAuth } from '../../middleware/auth.middleware';
-import { validate } from '../../middleware/validate';
-import { CreateReportSchema } from './reports.schemas';
+import { authenticate } from '../../middleware/auth';
 
-const router = Router();
-
-router.post(
-  '/',
-  requireAuth,
-  validate(CreateReportSchema),
-  reportsController.fileReport
-);
-
-export const reportsRouter = router;
+export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
+  fastify.post('/', { preHandler: [authenticate] }, reportsController.fileReport);
+  fastify.get('/:id', { preHandler: [authenticate] }, reportsController.getReport);
+}

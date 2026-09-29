@@ -1,17 +1,17 @@
-import { Request, Response, NextFunction } from 'express';
+import { FastifyRequest, FastifyReply } from 'fastify';
 import { discoveryService } from './discovery.service';
-import { sendSuccess } from '../../common/response';
+import { DiscoveryQuerySchema } from './discovery.schema';
 
 export class DiscoveryController {
-  async getFeed(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const user = req.user!;
-      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 20;
-      const result = await discoveryService.getDiscoveryFeed(user.id, user.verificationStatus, limit);
-      sendSuccess(res, result);
-    } catch (error) {
-      next(error);
-    }
+  async getDiscoveryFeed(request: FastifyRequest, reply: FastifyReply) {
+    const user = request.user!;
+    const query = DiscoveryQuerySchema.parse(request.query || {});
+    const result = await discoveryService.getDiscoveryFeed(
+      user.userId,
+      user.verificationStatus,
+      query.limit
+    );
+    return reply.status(200).send({ success: true, ...result });
   }
 }
 

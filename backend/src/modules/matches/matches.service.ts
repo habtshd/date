@@ -1,5 +1,4 @@
-import { prisma } from '../../database/prisma';
-import { NotFoundError } from '../../common/errors';
+import { prisma } from '../../plugins/prisma';
 
 export class MatchesService {
   /**
@@ -92,7 +91,7 @@ export class MatchesService {
     });
 
     if (!match) {
-      throw new NotFoundError('Match not found or already ended');
+      throw new Error('Match not found or already ended');
     }
 
     await prisma.$transaction(async (tx) => {
@@ -112,7 +111,7 @@ export class MatchesService {
       }
     });
 
-    return { message: 'Successfully unmatched' };
+    return { success: true, message: 'Successfully unmatched' };
   }
 }
 

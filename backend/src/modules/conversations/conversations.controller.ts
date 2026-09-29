@@ -1,27 +1,27 @@
-import { Request, Response, NextFunction } from 'express';
+import { FastifyRequest, FastifyReply } from 'fastify';
 import { conversationsService } from './conversations.service';
-import { sendSuccess } from '../../common/response';
+import { ConversationIdParamSchema, UnlockConversationBodySchema } from './conversations.schema';
 
 export class ConversationsController {
-  async getMyConversations(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = req.user!.id;
-      const result = await conversationsService.getUserConversations(userId);
-      sendSuccess(res, result);
-    } catch (error) {
-      next(error);
-    }
+  async getConversations(request: FastifyRequest, reply: FastifyReply) {
+    const userId = request.user!.userId;
+    const conversations = await conversationsService.getUserConversations(userId);
+    return reply.status(200).send({ success: true, conversations });
   }
 
-  async getConversation(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = req.user!.id;
-      const conversationId = req.params.conversationId as string;
-      const result = await conversationsService.getConversationById(userId, conversationId);
-      sendSuccess(res, result);
-    } catch (error) {
-      next(error);
-    }
+  async getConversationById(request: FastifyRequest, reply: FastifyReply) {
+    const userId = request.user!.userId;
+    const params = ConversationIdParamSchema.parse(request.params);
+    const conversation = await conversationsService.getConversationById(userId, params.id);
+    return reply.status(200).send({ success: true, conversation });
+  }
+
+  async unlockConversation(request: FastifyRequest, reply: FastifyReply) {
+    const userId = request.user!.userId;
+    const params = ConversationIdParamSchema.parse(request.params);
+    const body = UnlockConversationBodySchema.parse(request.body || {});
+    const result = await conversationsService.requestUnlock(userId, params.id, body.provider);
+    return reply.status(200).send({ success: true, ...result });
   }
 }
 

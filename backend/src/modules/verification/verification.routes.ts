@@ -1,28 +1,9 @@
-import { Router } from 'express';
+import { FastifyInstance } from 'fastify';
 import { verificationController } from './verification.controller';
-import { requireAuth } from '../../middleware/auth.middleware';
-import { validate } from '../../middleware/validate';
-import { SubmitVerificationSchema, VerificationWebhookSchema } from './verification.schemas';
+import { authenticate } from '../../middleware/auth';
 
-const router = Router();
-
-router.post(
-  '/submit',
-  requireAuth,
-  validate(SubmitVerificationSchema),
-  verificationController.submitVerification
-);
-
-router.get(
-  '/status',
-  requireAuth,
-  verificationController.getStatus
-);
-
-router.post(
-  '/webhook',
-  validate(VerificationWebhookSchema),
-  verificationController.handleWebhook
-);
-
-export const verificationRouter = router;
+export async function verificationRoutes(fastify: FastifyInstance): Promise<void> {
+  fastify.post('/start', { preHandler: [authenticate] }, verificationController.startVerification);
+  fastify.get('/status', { preHandler: [authenticate] }, verificationController.getStatus);
+  fastify.post('/webhook', verificationController.handleWebhook);
+}

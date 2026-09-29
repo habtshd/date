@@ -1,69 +1,65 @@
-import { Request, Response, NextFunction } from 'express';
+import { FastifyRequest, FastifyReply } from 'fastify';
 import { adminService } from './admin.service';
-import { sendSuccess } from '../../common/response';
+import {
+  AdminLoginSchema,
+  AdminModerationActionSchema,
+  AdminReportQuerySchema,
+  AdminPaginationSchema,
+} from './admin.schema';
 
 export class AdminController {
-  async login(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { email, password } = req.body;
-      const result = await adminService.login(email, password);
-      sendSuccess(res, result, 'Admin login successful');
-    } catch (error) {
-      next(error);
-    }
+  async login(request: FastifyRequest, reply: FastifyReply) {
+    const body = AdminLoginSchema.parse(request.body);
+    const result = await adminService.login(body.email, body.password);
+    return reply.status(200).send({ success: true, ...result });
   }
 
-  async getReports(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const status = req.query.status as any;
-      const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
-      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 20;
-
-      const result = await adminService.getReports(status, page, limit);
-      sendSuccess(res, result);
-    } catch (error) {
-      next(error);
-    }
+  async getUsers(request: FastifyRequest, reply: FastifyReply) {
+    const query = AdminPaginationSchema.parse(request.query || {});
+    const result = await adminService.getUsers(query.page, query.limit);
+    return reply.status(200).send({ success: true, ...result });
   }
 
-  async takeModerationAction(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const adminId = req.admin!.id;
-      const { targetUserId, actionType, reason, reportId, durationHours } = req.body;
-      const ipAddress = req.ip || req.socket.remoteAddress || '127.0.0.1';
-
-      const result = await adminService.executeModerationAction(
-        adminId,
-        targetUserId,
-        actionType,
-        reason,
-        reportId
-      );
-      sendSuccess(res, result);
-    } catch (error) {
-      next(error);
-    }
+  async getReports(request: FastifyRequest, reply: FastifyReply) {
+    const query = AdminReportQuerySchema.parse(request.query || {});
+    const result = await adminService.getReports(query.status, query.page, query.limit);
+    return reply.status(200).send({ success: true, ...result });
   }
 
-  async getDashboard(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const result = await adminService.getDashboardMetrics();
-      sendSuccess(res, result);
-    } catch (error) {
-      next(error);
-    }
+  async executeModeration(request: FastifyRequest, reply: FastifyReply) {
+    const adminId = request.user!.userId;
+    const body = AdminModerationActionSchema.parse(request.body);
+    const result = await adminService.executeModerationAction(
+      adminId,
+      body.targetUserId,
+      body.actionType,
+      body.reason,
+      body.reportId
+    );
+    return reply.status(200).send({ success: true, ...result });
   }
 
-  async getAuditLogs(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
-      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
+  async getVerificationQueue(request: FastifyRequest, reply: FastifyReply) {
+    const query = AdminPaginationSchema.parse(request.query || {});
+    const result = await adminService.getVerificationQueue(query.page, query.limit);
+    return reply.status(200).send({ success: true, ...result });
+  }
 
-      const result = await adminService.getAuditLogs(page, limit);
-      sendSuccess(res, result);
-    } catch (error) {
-      next(error);
-    }
+  async getPayments(request: FastifyRequest, reply: FastifyReply) {
+    const query = AdminPaginationSchema.parse(request.query || {});
+    const result = await adminService.getPayments(query.page, query.limit);
+    return reply.status(200).send({ success: true, ...result });
+  }
+
+  async getDashboardMetrics(_request: FastifyRequest, reply: FastifyReply) {
+    const metrics = await adminService.getDashboardMetrics();
+    return reply.status(200).send({ success: true, metrics });
+  }
+
+  async getAuditLogs(request: FastifyRequest, reply: FastifyReply) {
+    const query = AdminPaginationSchema.parse(request.query || {});
+    const result = await adminService.getAuditLogs(query.page, query.limit);
+    return reply.status(200).send({ success: true, ...result });
   }
 }
 

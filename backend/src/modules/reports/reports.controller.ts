@@ -1,23 +1,26 @@
-import { Request, Response, NextFunction } from 'express';
+import { FastifyRequest, FastifyReply } from 'fastify';
 import { reportsService } from './reports.service';
-import { sendSuccess } from '../../common/response';
+import { FileReportSchema, ReportIdParamSchema } from './reports.schema';
 
 export class ReportsController {
-  async fileReport(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const reporterId = req.user!.id;
-      const { reportedUserId, reason, description, conversationId } = req.body;
-      const result = await reportsService.fileReport(
-        reporterId,
-        reportedUserId,
-        reason,
-        description,
-        conversationId
-      );
-      sendSuccess(res, result, 'Report submitted', 201);
-    } catch (error) {
-      next(error);
-    }
+  async fileReport(request: FastifyRequest, reply: FastifyReply) {
+    const reporterId = request.user!.userId;
+    const body = FileReportSchema.parse(request.body);
+    const result = await reportsService.fileReport(
+      reporterId,
+      body.reportedUserId,
+      body.reason,
+      body.description,
+      body.conversationId
+    );
+    return reply.status(201).send({ success: true, ...result });
+  }
+
+  async getReport(request: FastifyRequest, reply: FastifyReply) {
+    const reporterId = request.user!.userId;
+    const params = ReportIdParamSchema.parse(request.params);
+    const report = await reportsService.getReportById(reporterId, params.id);
+    return reply.status(200).send({ success: true, report });
   }
 }
 

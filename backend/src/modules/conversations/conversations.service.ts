@@ -1,5 +1,5 @@
-import { prisma } from '../../database/prisma';
-import { NotFoundError, ForbiddenError } from '../../common/errors';
+import { prisma } from '../../plugins/prisma';
+import { paymentsService } from '../payments/payments.service';
 
 export class ConversationsService {
   /**
@@ -110,12 +110,12 @@ export class ConversationsService {
     });
 
     if (!conversation) {
-      throw new NotFoundError('Conversation not found');
+      throw new Error('Conversation not found');
     }
 
     const isMember = conversation.members.some((m) => m.userId === userId);
     if (!isMember) {
-      throw new ForbiddenError('Access denied. You are not a member of this conversation.');
+      throw new Error('Access denied. You are not a member of this conversation.');
     }
 
     const isUserA = conversation.match.userAId === userId;
@@ -138,6 +138,13 @@ export class ConversationsService {
         isVerified: partner.verificationStatus === 'VERIFIED',
       },
     };
+  }
+
+  /**
+   * Request pay-per-conversation unlock order
+   */
+  async requestUnlock(userId: string, conversationId: string, provider = 'CHAPA') {
+    return paymentsService.initiateConversationPayment(userId, conversationId, provider);
   }
 }
 

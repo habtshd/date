@@ -1,38 +1,26 @@
-import { Request, Response, NextFunction } from 'express';
+import { FastifyRequest, FastifyReply } from 'fastify';
 import { blocksService } from './blocks.service';
-import { sendSuccess } from '../../common/response';
+import { BlockUserParamSchema } from './blocks.schema';
 
 export class BlocksController {
-  async blockUser(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const blockerId = req.user!.id;
-      const { targetUserId } = req.body;
-      const result = await blocksService.blockUser(blockerId, targetUserId);
-      sendSuccess(res, result);
-    } catch (error) {
-      next(error);
-    }
+  async blockUser(request: FastifyRequest, reply: FastifyReply) {
+    const blockerId = request.user!.userId;
+    const params = BlockUserParamSchema.parse(request.params);
+    const result = await blocksService.blockUser(blockerId, params.userId);
+    return reply.status(200).send(result);
   }
 
-  async unblockUser(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const blockerId = req.user!.id;
-      const targetUserId = req.params.targetUserId as string;
-      const result = await blocksService.unblockUser(blockerId, targetUserId);
-      sendSuccess(res, result);
-    } catch (error) {
-      next(error);
-    }
+  async unblockUser(request: FastifyRequest, reply: FastifyReply) {
+    const blockerId = request.user!.userId;
+    const params = BlockUserParamSchema.parse(request.params);
+    const result = await blocksService.unblockUser(blockerId, params.userId);
+    return reply.status(200).send(result);
   }
 
-  async getBlockedUsers(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = req.user!.id;
-      const result = await blocksService.getBlockedUsers(userId);
-      sendSuccess(res, result);
-    } catch (error) {
-      next(error);
-    }
+  async getBlockedUsers(request: FastifyRequest, reply: FastifyReply) {
+    const userId = request.user!.userId;
+    const blockedUsers = await blocksService.getBlockedUsers(userId);
+    return reply.status(200).send({ success: true, blockedUsers });
   }
 }
 

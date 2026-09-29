@@ -1,42 +1,16 @@
-import { Router } from 'express';
+import { FastifyInstance } from 'fastify';
 import { authController } from './auth.controller';
-import { validate } from '../../middleware/validate';
-import { RequestOtpSchema, VerifyOtpSchema, RefreshTokenSchema } from './auth.schemas';
-import { requireAuth } from '../../middleware/auth.middleware';
-import { otpRateLimiter, otpVerifyRateLimiter } from '../../middleware/rateLimiter';
+import { authenticate } from '../../middleware/auth';
+import { otpRequestRateLimit, otpVerifyRateLimit } from '../../middleware/rateLimit';
 
-const router = Router();
+export async function authRoutes(fastify: FastifyInstance): Promise<void> {
+  // Public endpoints with rate limits
+  fastify.post('/send-otp', { config: { rateLimit: otpRequestRateLimit } }, authController.requestOtp);
+  fastify.post('/register', { config: { rateLimit: otpRequestRateLimit } }, authController.requestOtp);
+  fastify.post('/verify-otp', { config: { rateLimit: otpVerifyRateLimit } }, authController.verifyOtp);
+  fastify.post('/refresh', authController.refreshToken);
 
-router.post(
-  '/request-otp',
-  otpRateLimiter,
-  validate(RequestOtpSchema),
-  authController.requestOtp
-);
-
-router.post(
-  '/verify-otp',
-  otpVerifyRateLimiter,
-  validate(VerifyOtpSchema),
-  authController.verifyOtp
-);
-
-router.post(
-  '/refresh',
-  validate(RefreshTokenSchema),
-  authController.refreshToken
-);
-
-router.post(
-  '/logout',
-  requireAuth,
-  authController.logout
-);
-
-router.get(
-  '/me',
-  requireAuth,
-  authController.getMe
-);
-
-export const authRouter = router;
+  // Authenticated endpoints
+  fastify.post('/logout', { preHandler: [authenticate] }, authController.logout);
+  fastify.get('/me', { preHandler: [authenticate] }, authController.getMe);
+}

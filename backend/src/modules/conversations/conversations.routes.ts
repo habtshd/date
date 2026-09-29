@@ -1,22 +1,10 @@
-import { Router } from 'express';
+import { FastifyInstance } from 'fastify';
 import { conversationsController } from './conversations.controller';
-import { requireAuth } from '../../middleware/auth.middleware';
-import { requireVerified } from '../../middleware/verification.guard';
+import { authenticate } from '../../middleware/auth';
+import { requireVerified } from '../../middleware/role';
 
-const router = Router();
-
-router.get(
-  '/',
-  requireAuth,
-  requireVerified,
-  conversationsController.getMyConversations
-);
-
-router.get(
-  '/:conversationId',
-  requireAuth,
-  requireVerified,
-  conversationsController.getConversation
-);
-
-export const conversationsRouter = router;
+export async function conversationsRoutes(fastify: FastifyInstance): Promise<void> {
+  fastify.get('/', { preHandler: [authenticate, requireVerified] }, conversationsController.getConversations);
+  fastify.get('/:id', { preHandler: [authenticate, requireVerified] }, conversationsController.getConversationById);
+  fastify.post('/:id/unlock', { preHandler: [authenticate, requireVerified] }, conversationsController.unlockConversation);
+}

@@ -1,6 +1,6 @@
-import { prisma } from '../../database/prisma';
-import { BadRequestError, NotFoundError } from '../../common/errors';
+import { prisma } from '../../plugins/prisma';
 import { ReportReason } from '@prisma/client';
+import { logger } from '../../utils/logger';
 
 export class ReportsService {
   /**
@@ -14,7 +14,7 @@ export class ReportsService {
     conversationId?: string
   ) {
     if (reporterId === reportedUserId) {
-      throw new BadRequestError('You cannot report your own account');
+      throw new Error('You cannot report your own account');
     }
 
     const targetUser = await prisma.user.findUnique({
@@ -22,7 +22,7 @@ export class ReportsService {
     });
 
     if (!targetUser) {
-      throw new NotFoundError('Target user not found');
+      throw new Error('Target user not found');
     }
 
     const report = await prisma.report.create({
@@ -36,10 +36,43 @@ export class ReportsService {
       },
     });
 
+    logger.info('Safety report filed', {
+      reportId: report.id,
+      reporterId,
+      reportedUserId,
+      reason,
+    });
+
     return {
       reportId: report.id,
       status: report.status,
       message: 'Report received. Our safety moderation team will investigate.',
+    };
+  }
+
+  /**
+   * Get report details by reporter
+   */
+  async getReportById(reporterId: string, reportId: string) {
+    const report = await prisma.report.findUnique({
+      where: { id: reportId },
+    });
+
+    if (!report) {
+      throw new Error('Report not found');
+    }
+
+    if (report.reporterId !== reporterId) {
+      throw new Error('Access denied to report');
+    }
+
+    return {
+      id: report.id,
+      reason: report.reason,
+      description: report.description,
+      status: report.status,
+      createdAt: report.createdAt,
+      resolvedAt: report.resolvedAt,
     };
   }
 }

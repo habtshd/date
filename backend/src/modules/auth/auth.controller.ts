@@ -1,57 +1,34 @@
-import { Request, Response, NextFunction } from 'express';
+import { FastifyRequest, FastifyReply } from 'fastify';
 import { authService } from './auth.service';
-import { sendSuccess } from '../../common/response';
+import { RequestOtpSchema, VerifyOtpSchema, RefreshTokenSchema } from './auth.schema';
 
 export class AuthController {
-  async requestOtp(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { phoneNumber, phone } = req.body;
-      const targetPhone = phoneNumber || phone;
-      const result = await authService.requestOtp(targetPhone);
-      sendSuccess(res, result, 'Verification code requested');
-    } catch (error) {
-      next(error);
-    }
+  async requestOtp(request: FastifyRequest, reply: FastifyReply) {
+    const body = RequestOtpSchema.parse(request.body);
+    const result = await authService.requestOtp(body.phoneNumber);
+    return reply.status(200).send({ success: true, ...result });
   }
 
-  async verifyOtp(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { phoneNumber, phone, code, deviceId, deviceType } = req.body;
-      const targetPhone = phoneNumber || phone;
-      const result = await authService.verifyOtp(targetPhone, code, deviceId, deviceType);
-      sendSuccess(res, result, 'Authentication successful');
-    } catch (error) {
-      next(error);
-    }
+  async verifyOtp(request: FastifyRequest, reply: FastifyReply) {
+    const body = VerifyOtpSchema.parse(request.body);
+    const result = await authService.verifyOtp(body);
+    return reply.status(200).send({ success: true, ...result });
   }
 
-  async refreshToken(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { refreshToken } = req.body;
-      const result = await authService.refreshToken(refreshToken);
-      sendSuccess(res, result, 'Token refreshed');
-    } catch (error) {
-      next(error);
-    }
+  async refreshToken(request: FastifyRequest, reply: FastifyReply) {
+    const body = RefreshTokenSchema.parse(request.body);
+    const result = await authService.refreshToken(body.refreshToken);
+    return reply.status(200).send({ success: true, ...result });
   }
 
-  async logout(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = req.user!.id;
-      const result = await authService.logout(userId);
-      sendSuccess(res, result, 'Logged out');
-    } catch (error) {
-      next(error);
-    }
+  async logout(request: FastifyRequest, reply: FastifyReply) {
+    const userId = request.user!.userId;
+    const result = await authService.logout(userId);
+    return reply.status(200).send({ success: true, ...result });
   }
 
-  async getMe(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const user = req.user!;
-      sendSuccess(res, user, 'Current user profile');
-    } catch (error) {
-      next(error);
-    }
+  async getMe(request: FastifyRequest, reply: FastifyReply) {
+    return reply.status(200).send({ success: true, user: request.user });
   }
 }
 

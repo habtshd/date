@@ -1,27 +1,19 @@
-import { Request, Response, NextFunction } from 'express';
+import { FastifyRequest, FastifyReply } from 'fastify';
 import { matchesService } from './matches.service';
-import { sendSuccess } from '../../common/response';
+import { MatchIdParamSchema } from './matches.schema';
 
 export class MatchesController {
-  async getMyMatches(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = req.user!.id;
-      const result = await matchesService.getUserMatches(userId);
-      sendSuccess(res, result);
-    } catch (error) {
-      next(error);
-    }
+  async getMatches(request: FastifyRequest, reply: FastifyReply) {
+    const userId = request.user!.userId;
+    const matches = await matchesService.getUserMatches(userId);
+    return reply.status(200).send({ success: true, matches });
   }
 
-  async unmatch(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = req.user!.id;
-      const matchId = req.params.matchId as string;
-      const result = await matchesService.unmatch(userId, matchId);
-      sendSuccess(res, result);
-    } catch (error) {
-      next(error);
-    }
+  async unmatch(request: FastifyRequest, reply: FastifyReply) {
+    const userId = request.user!.userId;
+    const params = MatchIdParamSchema.parse(request.params);
+    const result = await matchesService.unmatch(userId, params.id);
+    return reply.status(200).send(result);
   }
 }
 
