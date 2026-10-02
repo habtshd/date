@@ -19,7 +19,7 @@ export const AdminReportsModeration: React.FC = () => {
         await adminApi.executeModeration({
           targetUserId: reportedUserId,
           action,
-          reason: 'Violated Sovereign Community Standards',
+          reason: 'Violated Community Standards',
         });
       }
       setReports((prev) =>

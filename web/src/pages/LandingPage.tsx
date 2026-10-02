@@ -164,7 +164,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
       <section className="glass-panel" style={{ padding: '48px 36px', marginBottom: 80 }}>
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <span style={{ color: 'var(--primary-gold)', fontSize: '0.85rem', fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' }}>
-            The Sovereign Standard
+            The Dating Standard
           </span>
           <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '2.2rem', marginTop: 8 }}>
             How Verification Protects You

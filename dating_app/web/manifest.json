@@ -1,6 +1,6 @@
 {
-    "name": "sovereign_dating",
-    "short_name": "sovereign_dating",
+    "name": "Dating",
+    "short_name": "Dating",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

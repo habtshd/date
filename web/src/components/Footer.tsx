@@ -22,7 +22,7 @@ export const Footer: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
             <Heart size={20} color="var(--primary-gold)" fill="var(--primary-gold)" />
             <span style={{ fontFamily: 'var(--font-serif)', fontSize: '1.2rem', fontWeight: 800 }}>
-              SOVEREIGN
+              DATING
             </span>
           </div>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.6 }}>
@@ -75,7 +75,7 @@ export const Footer: React.FC = () => {
         color: 'var(--text-muted)',
         fontSize: '0.75rem',
       }}>
-        <span>© {new Date().getFullYear()} Sovereign Dating Inc. All rights reserved. Addis Ababa, Ethiopia.</span>
+        <span>© {new Date().getFullYear()} Dating Inc. All rights reserved. Addis Ababa, Ethiopia.</span>
         <span>Made with dignity for the Ethiopian Diaspora & Homeland</span>
       </div>
     </footer>

@@ -18,7 +18,7 @@ void main() async {
 
   runApp(
     const ProviderScope(
-      child: SovereignDatingApp(),
+      child: DatingApp(),
     ),
   );
 }

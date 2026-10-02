@@ -234,7 +234,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
           children: [
             const Icon(Icons.favorite_rounded, color: AppTheme.accentCrimson, size: 22),
             const SizedBox(width: 8),
-            const Text('SOVEREIGN'),
+            const Text('DATING'),
             const SizedBox(width: 8),
             if (isVerified)
               Container(

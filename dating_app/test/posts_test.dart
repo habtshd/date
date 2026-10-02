@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:sovereign_dating/features/posts/domain/post.dart';
-import 'package:sovereign_dating/features/posts/presentation/posts_screen.dart';
-import 'package:sovereign_dating/features/posts/presentation/create_post_screen.dart';
+import 'package:dating_app/features/posts/domain/post.dart';
+import 'package:dating_app/features/posts/presentation/posts_screen.dart';
+import 'package:dating_app/features/posts/presentation/create_post_screen.dart';
 
 void main() {
   group('Community Posts Domain & UI Tests', () {

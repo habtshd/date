@@ -14,7 +14,7 @@ class SecureStorage {
             const FlutterSecureStorage(
               aOptions: AndroidOptions(),
               iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
-              webOptions: WebOptions(dbName: 'sovereign_dating', publicKey: 'sovereign_pub'),
+              webOptions: WebOptions(dbName: 'dating_app', publicKey: 'dating_pub'),
             );
 
   Future<void> saveTokens({

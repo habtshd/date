@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:sovereign_dating/features/onboarding/domain/user_profile.dart';
-import 'package:sovereign_dating/features/onboarding/domain/preferences.dart';
-import 'package:sovereign_dating/features/onboarding/domain/interest.dart';
-import 'package:sovereign_dating/features/onboarding/presentation/profile_setup_screen.dart';
-import 'package:sovereign_dating/features/onboarding/presentation/preferences_screen.dart';
-import 'package:sovereign_dating/features/onboarding/presentation/interests_screen.dart';
-import 'package:sovereign_dating/features/onboarding/presentation/photos_screen.dart';
-import 'package:sovereign_dating/features/onboarding/presentation/profile_preview_screen.dart';
+import 'package:dating_app/features/onboarding/domain/user_profile.dart';
+import 'package:dating_app/features/onboarding/domain/preferences.dart';
+import 'package:dating_app/features/onboarding/domain/interest.dart';
+import 'package:dating_app/features/onboarding/presentation/profile_setup_screen.dart';
+import 'package:dating_app/features/onboarding/presentation/preferences_screen.dart';
+import 'package:dating_app/features/onboarding/presentation/interests_screen.dart';
+import 'package:dating_app/features/onboarding/presentation/photos_screen.dart';
+import 'package:dating_app/features/onboarding/presentation/profile_preview_screen.dart';
 
 void main() {
   group('Onboarding Domain Models & Validation', () {

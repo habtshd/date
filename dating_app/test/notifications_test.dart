@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:sovereign_dating/features/notifications/domain/notification_item.dart';
-import 'package:sovereign_dating/features/notifications/presentation/notifications_screen.dart';
+import 'package:dating_app/features/notifications/domain/notification_item.dart';
+import 'package:dating_app/features/notifications/presentation/notifications_screen.dart';
 
 void main() {
   group('Notifications Domain & UI Tests', () {

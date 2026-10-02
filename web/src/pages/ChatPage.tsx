@@ -160,7 +160,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ conversationId, user, onBack
             Unlock Conversation
           </h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', maxWidth: 420, margin: '12px auto 28px', lineHeight: 1.5 }}>
-            To foster respectful, committed interactions and eliminate spammers, Sovereign requires a small one-time connection fee for this specific match.
+            To foster respectful, committed interactions and eliminate spammers, a small one-time connection fee is required for this specific match.
           </p>
 
           <div style={{

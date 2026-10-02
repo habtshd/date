@@ -63,7 +63,7 @@ class ChatRepository {
       otherUserName: 'Bethlehem',
       otherUserPhoto:
           'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
-      lastMessage: 'Selam! So glad we matched on Sovereign. ☕',
+      lastMessage: 'Selam! So glad we matched on Dating. ☕',
       lastMessageAt: DateTime.now().subtract(const Duration(minutes: 15)),
       unreadCount: 1,
       chatFeeEtb: 0.0,

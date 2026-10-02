@@ -1,17 +1,17 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:sovereign_dating/app/app.dart';
+import 'package:dating_app/app/app.dart';
 
 void main() {
-  testWidgets('SovereignDatingApp boots into SplashScreen and navigates to Welcome', (WidgetTester tester) async {
+  testWidgets('DatingApp boots into SplashScreen and navigates to Welcome', (WidgetTester tester) async {
     await tester.pumpWidget(
       const ProviderScope(
-        child: SovereignDatingApp(),
+        child: DatingApp(),
       ),
     );
 
-    // Initial frame displays Sovereign brand name
-    expect(find.text('SOVEREIGN'), findsOneWidget);
+    // Initial frame displays Dating brand name
+    expect(find.text('DATING'), findsOneWidget);
     expect(find.text('Verified Dating in Ethiopia'), findsOneWidget);
 
     // Advance time past splash delay (1600ms)

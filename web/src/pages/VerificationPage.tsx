@@ -63,7 +63,7 @@ export const VerificationPage: React.FC<VerificationPageProps> = ({
               Verify with Fayda
             </h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', maxWidth: 420, margin: '12px auto 28px', lineHeight: 1.6 }}>
-              Sovereign guarantees a safe, respectful environment by verifying every member through Ethiopia’s National Identity (Fayda) system.
+              We guarantee a safe, respectful environment by verifying every member through Ethiopia’s National Identity (Fayda) system.
             </p>
 
             <div style={{
@@ -175,7 +175,7 @@ export const VerificationPage: React.FC<VerificationPageProps> = ({
               You Are Verified!
             </h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', maxWidth: 400, margin: '10px auto 28px' }}>
-              Your account has full access to the Sovereign dating pool. All unblurred profiles, likes, and matches are now unlocked.
+              Your account has full access to the verified dating pool. All unblurred profiles, likes, and matches are now unlocked.
             </p>
 
             <button

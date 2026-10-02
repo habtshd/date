@@ -61,7 +61,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onSuccess }) => 
           </div>
           <h2 style={{ fontSize: '1.6rem', fontWeight: 800 }}>Staff Authentication</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: 6 }}>
-            Restricted to authorized Sovereign trust & safety operators.
+            Restricted to authorized trust & safety operators.
           </p>
         </div>
 

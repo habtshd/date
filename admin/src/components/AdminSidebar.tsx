@@ -57,7 +57,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           <Heart size={20} color="#fff" fill="#fff" />
         </div>
         <div>
-          <h3 style={{ fontSize: '0.95rem', fontWeight: 800, color: '#fff' }}>SOVEREIGN</h3>
+          <h3 style={{ fontSize: '0.95rem', fontWeight: 800, color: '#fff' }}>DATING</h3>
           <span style={{ fontSize: '0.7rem', color: 'var(--primary-gold)', fontWeight: 700 }}>COMMAND CENTER</span>
         </div>
       </div>

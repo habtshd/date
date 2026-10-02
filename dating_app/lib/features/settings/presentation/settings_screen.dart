@@ -109,7 +109,7 @@ class SettingsScreen extends ConsumerWidget {
             const SizedBox(height: 20),
             const Center(
               child: Text(
-                'Sovereign Dating v1.0.0 (Phase 4 MVP)',
+                'Dating v1.0.0 (Phase 4 MVP)',
                 style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
               ),
             ),

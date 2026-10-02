@@ -335,7 +335,7 @@ app.get(['/api/v1/conversations', '/conversations'], (req, res) => {
       otherUserId: 'usr-bethlehem',
       otherUserName: 'Bethlehem',
       otherUserPhoto: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
-      lastMessage: 'Selam! So glad we matched on Sovereign.',
+      lastMessage: 'Selam! So glad we matched on Dating.',
       lastMessageAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
       unreadCount: 1,
       chatFeeEtb: 0.0,
@@ -361,7 +361,7 @@ app.get('/api/v1/conversations/:id/messages', (req, res) => {
     {
       id: 'msg-1',
       senderId: 'usr-bethlehem',
-      content: 'Selam! So glad we matched on Sovereign.',
+      content: 'Selam! So glad we matched on Dating.',
       createdAt: new Date().toISOString(),
     },
   ];
@@ -413,7 +413,7 @@ app.get('/api/v1/notifications', (req, res) => {
       {
         id: 'n-1',
         title: 'Identity Verified!',
-        body: 'Your Fayda ID has been verified. Welcome to Sovereign!',
+        body: 'Your Fayda ID has been verified. Welcome to Dating!',
         type: 'VERIFICATION_COMPLETE',
         createdAt: new Date().toISOString(),
         readAt: null,
@@ -510,7 +510,7 @@ app.post('/api/v1/posts/:id/like', (req, res) => {
 // Start Server
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`====================================================`);
-  console.log(`🇪🇹 Sovereign Local Standalone Server Active!`);
+  console.log(`🇪🇹 Dating Local Standalone Server Active!`);
   console.log(`🚀 API Base:    http://localhost:${PORT}/api/v1`);
   console.log(`🔑 Test OTP:    123456 (works for all phone numbers)`);
   console.log(`🩺 Health:      http://localhost:${PORT}/health`);

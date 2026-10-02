@@ -1,4 +1,4 @@
-# Sovereign Dating — Identity-Verified Ethiopian Dating Platform
+# Dating — Identity-Verified Ethiopian Dating Platform
 
 > **Authentic Dating, Guaranteed by Fayda National Identity & Telebirr Protection.**
 
@@ -7,7 +7,7 @@
 ## 🏛️ System Architecture
 
 ```text
-                                SOVEREIGN DATING PLATFORM
+                                     DATING PLATFORM     
                                             │
                        ┌────────────────────┴────────────────────┐
                        │                                         │
@@ -110,7 +110,7 @@ npm run dev       # Starts server on http://localhost:3000
 
 #### 2. Mobile App (Flutter)
 ```bash
-cd sovereign_dating
+cd dating_app
 flutter pub get
 flutter test      # Run all 11 unit & widget test suites
 flutter run       # Launch on iOS Simulator, Android Emulator, or device
